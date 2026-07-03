@@ -125,6 +125,15 @@ export default function AuthPage() {
     }
   };
 
+  const saveSessionData = (accessToken: string, user: any) => {
+    localStorage.setItem('momentum_token', accessToken);
+    localStorage.setItem('momentum_user', JSON.stringify(user));
+    localStorage.setItem('momentum_profile_name', user.username);
+    localStorage.setItem('momentum_profile_display_name', user.displayName || user.username);
+    // Clear any previous profile picture to prevent carry-over
+    localStorage.removeItem('momentum_profile_pic');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -134,14 +143,14 @@ export default function AuthPage() {
     try {
       if (mode === 'login') {
         const res = await api.post('/auth/login', { identifier: email, password });
-        api.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
+        saveSessionData(res.data.accessToken, res.data.user);
         setSuccess('Logged in successfully! Redirecting...');
         setTimeout(() => {
           router.push('/dashboard');
         }, 1500);
       } else if (mode === 'register') {
         const res = await api.post('/auth/register', { email, username, password });
-        api.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
+        saveSessionData(res.data.accessToken, res.data.user);
         setSuccess('Account created successfully! Redirecting...');
         setTimeout(() => {
           router.push('/dashboard');
@@ -161,7 +170,7 @@ export default function AuthPage() {
           setSuccess('OTP verified successfully! Create a username and password to complete registration.');
           setMode('register');
         } else {
-          api.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
+          saveSessionData(res.data.accessToken, res.data.user);
           setSuccess('OTP verified successfully! Redirecting...');
           setTimeout(() => {
             router.push('/dashboard');

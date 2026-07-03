@@ -9,6 +9,20 @@ export const api = axios.create({
   },
 });
 
+// Request interceptor to attach bearer token from localStorage
+api.interceptors.request.use(
+  (config) => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('momentum_token');
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 let isRefreshing = false;
 let failedQueue: any[] = [];
 

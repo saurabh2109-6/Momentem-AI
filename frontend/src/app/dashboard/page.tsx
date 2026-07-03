@@ -223,10 +223,15 @@ export default function DashboardPage() {
 
   const [isMounted, setIsMounted] = useState(false);
 
-  // Load from localStorage on client-mount to prevent Next.js hydration mismatch
   useEffect(() => {
     setIsMounted(true);
     
+    const token = localStorage.getItem('momentum_token');
+    if (!token) {
+      window.location.href = '/auth';
+      return;
+    }
+
     const storedGoals = localStorage.getItem('momentum_goals');
     if (storedGoals) {
       try {
@@ -411,6 +416,23 @@ export default function DashboardPage() {
       heatmap,
       advice
     };
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('momentum_token');
+    localStorage.removeItem('momentum_user');
+    localStorage.removeItem('momentum_profile_name');
+    localStorage.removeItem('momentum_profile_display_name');
+    localStorage.removeItem('momentum_profile_pic');
+    
+    // Clear user-specific cached states so they do not bleed into subsequent sessions
+    localStorage.removeItem('momentum_goals');
+    localStorage.removeItem('momentum_habits');
+    localStorage.removeItem('momentum_friends');
+    localStorage.removeItem('momentum_activities');
+    localStorage.removeItem('momentum_incoming_requests');
+    
+    window.location.href = '/';
   };
 
   // Core handler functions
@@ -820,9 +842,13 @@ export default function DashboardPage() {
                   <p className="text-[9px] text-muted-foreground">@{profileName}</p>
                 </div>
               </div>
-              <Link href="/" className="text-muted-foreground hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5" title="Log Out">
+              <button 
+                onClick={handleLogout} 
+                className="text-muted-foreground hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5" 
+                title="Log Out"
+              >
                 <LogOut className="w-3.5 h-3.5" />
-              </Link>
+              </button>
             </div>
           </div>
         </header>
