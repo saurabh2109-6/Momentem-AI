@@ -82,6 +82,13 @@ interface Activity {
   reactions: string[];
 }
 
+const generateFriendCode = (username: string) => {
+  const cleanName = username.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const prefix = cleanName.substring(0, 4).padEnd(4, 'X');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `MOMENTUM-${prefix}${rand}`;
+};
+
 export default function DashboardPage() {
   const [activeView, setActiveView] = useState<'overview' | 'calendar' | 'analytics' | 'friends' | 'chat' | 'ai'>('overview');
   const [isE2EESecured, setIsE2EESecured] = useState(false);
@@ -172,7 +179,7 @@ export default function DashboardPage() {
   const [securityMessage, setSecurityMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // States for friends
-  const [friendCode, setFriendCode] = useState('MOMENTUM-XJ8A2K');
+  const [friendCode, setFriendCode] = useState('MOMENTUM-ALEX4821');
   const [searchCode, setSearchCode] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
@@ -246,6 +253,15 @@ export default function DashboardPage() {
     const storedPic = localStorage.getItem('momentum_profile_pic');
     if (storedPic) setProfilePic(storedPic);
 
+    const storedCode = localStorage.getItem('momentum_friend_code');
+    if (storedCode) {
+      setFriendCode(storedCode);
+    } else {
+      const generated = generateFriendCode(storedName || 'alex_coder');
+      setFriendCode(generated);
+      localStorage.setItem('momentum_friend_code', generated);
+    }
+
     const storedFriends = localStorage.getItem('momentum_friends');
     if (storedFriends) {
       try {
@@ -281,7 +297,7 @@ export default function DashboardPage() {
     }
   }, [habits, isMounted]);
 
-  // Sync profile details to localStorage
+  // Sync profile details and update unique Friend Code to localStorage
   useEffect(() => {
     if (isMounted) {
       localStorage.setItem('momentum_profile_name', profileName);
@@ -291,6 +307,10 @@ export default function DashboardPage() {
       } else {
         localStorage.removeItem('momentum_profile_pic');
       }
+
+      const newCode = generateFriendCode(profileName);
+      setFriendCode(newCode);
+      localStorage.setItem('momentum_friend_code', newCode);
     }
   }, [profileName, profileDisplayName, profilePic, isMounted]);
 
