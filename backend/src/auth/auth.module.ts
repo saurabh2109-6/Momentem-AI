@@ -5,7 +5,6 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
 import { MailModule } from '../mail/mail.module';
-import { FirebaseModule } from '../firebase/firebase.module';
 
 @Module({
   imports: [
@@ -14,7 +13,6 @@ import { FirebaseModule } from '../firebase/firebase.module';
       global: true,
     }),
     MailModule,
-    FirebaseModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, FirebaseAuthGuard],
