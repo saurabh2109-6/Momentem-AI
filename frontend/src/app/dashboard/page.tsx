@@ -146,6 +146,18 @@ export default function DashboardPage() {
   const [newHabitName, setNewHabitName] = useState('');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
+  // States for user profile details and password settings
+  const [profileName, setProfileName] = useState('alex_coder');
+  const [profileDisplayName, setProfileDisplayName] = useState('Alex Coder');
+  const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState<'details' | 'security'>('details');
+
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [securityMessage, setSecurityMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
   const [isMounted, setIsMounted] = useState(false);
 
   // Load from localStorage on client-mount to prevent Next.js hydration mismatch
@@ -169,6 +181,15 @@ export default function DashboardPage() {
         console.error('Failed to parse stored habits:', e);
       }
     }
+
+    const storedName = localStorage.getItem('momentum_profile_name');
+    if (storedName) setProfileName(storedName);
+    
+    const storedDisplayName = localStorage.getItem('momentum_profile_display_name');
+    if (storedDisplayName) setProfileDisplayName(storedDisplayName);
+    
+    const storedPic = localStorage.getItem('momentum_profile_pic');
+    if (storedPic) setProfilePic(storedPic);
   }, []);
 
   // Save goals and habits to localStorage when state changes
@@ -183,6 +204,19 @@ export default function DashboardPage() {
       localStorage.setItem('momentum_habits', JSON.stringify(habits));
     }
   }, [habits, isMounted]);
+
+  // Sync profile details to localStorage
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('momentum_profile_name', profileName);
+      localStorage.setItem('momentum_profile_display_name', profileDisplayName);
+      if (profilePic) {
+        localStorage.setItem('momentum_profile_pic', profilePic);
+      } else {
+        localStorage.removeItem('momentum_profile_pic');
+      }
+    }
+  }, [profileName, profileDisplayName, profilePic, isMounted]);
 
   const calculateAnalytics = () => {
     const nowStr = new Date().toISOString();
@@ -592,13 +626,25 @@ export default function DashboardPage() {
               <span>Local Fallback Mode</span>
             </div>
             <div className="flex items-center gap-3 border-l border-white/15 pl-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-xs text-white">
-                  A
-                </div>
+              <div 
+                onClick={() => {
+                  setActiveProfileTab('details');
+                  setSecurityMessage(null);
+                  setIsProfileModalOpen(true);
+                }}
+                className="flex items-center gap-2 cursor-pointer hover:opacity-85 transition-opacity"
+                title="Profile Settings"
+              >
+                {profilePic ? (
+                  <img src={profilePic} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-white/15" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-xs text-white uppercase">
+                    {profileName ? profileName.charAt(0) : 'A'}
+                  </div>
+                )}
                 <div className="text-left hidden md:block">
-                  <p className="text-xs font-bold leading-tight text-white">alex_coder</p>
-                  <p className="text-[9px] text-muted-foreground">Premium</p>
+                  <p className="text-xs font-bold leading-tight text-white">{profileDisplayName}</p>
+                  <p className="text-[9px] text-muted-foreground">@{profileName}</p>
                 </div>
               </div>
               <Link href="/" className="text-muted-foreground hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5" title="Log Out">
@@ -1578,6 +1624,198 @@ export default function DashboardPage() {
                   Save Changes
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Profile Settings Modal Overlay */}
+      <AnimatePresence>
+        {isProfileModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-panel w-full max-w-md p-6 rounded-3xl border border-white/15 space-y-4 shadow-2xl"
+            >
+              <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                <h3 className="text-base font-bold text-white">Profile Settings</h3>
+                <button 
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="text-xs text-muted-foreground hover:text-white transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Tabs selector */}
+              <div className="flex border-b border-white/5 gap-4">
+                <button 
+                  onClick={() => setActiveProfileTab('details')}
+                  className={`pb-2 text-xs font-bold transition-all relative ${
+                    activeProfileTab === 'details' ? 'text-primary' : 'text-muted-foreground hover:text-white'
+                  }`}
+                >
+                  Edit Profile
+                  {activeProfileTab === 'details' && (
+                    <motion.div layoutId="profileTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                  )}
+                </button>
+                <button 
+                  onClick={() => setActiveProfileTab('security')}
+                  className={`pb-2 text-xs font-bold transition-all relative ${
+                    activeProfileTab === 'security' ? 'text-primary' : 'text-muted-foreground hover:text-white'
+                  }`}
+                >
+                  Account Security
+                  {activeProfileTab === 'security' && (
+                    <motion.div layoutId="profileTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                  )}
+                </button>
+              </div>
+
+              {/* Form Views */}
+              {activeProfileTab === 'details' ? (
+                <div className="space-y-4 py-2">
+                  {/* Profile Picture Uploader */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="relative group cursor-pointer w-20 h-20 rounded-full border border-white/10 overflow-hidden bg-white/5 flex items-center justify-center">
+                      {profilePic ? (
+                        <img src={profilePic} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl font-bold text-white uppercase">{profileName.charAt(0)}</span>
+                      )}
+                      <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[10px] text-white font-bold transition-opacity cursor-pointer">
+                        <span>Upload</span>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                if (event.target?.result) {
+                                  setProfilePic(event.target.result as string);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {profilePic && (
+                      <button 
+                        onClick={() => setProfilePic(null)}
+                        className="text-[10px] text-red-400 hover:underline"
+                      >
+                        Remove Photo
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Display Name</label>
+                    <input 
+                      type="text" 
+                      value={profileDisplayName}
+                      onChange={(e) => setProfileDisplayName(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                      placeholder="e.g. Alex Coder"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Username</label>
+                    <input 
+                      type="text" 
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                      placeholder="e.g. alex_coder"
+                    />
+                  </div>
+
+                  <button 
+                    onClick={() => setIsProfileModalOpen(false)}
+                    className="w-full h-10 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors mt-2"
+                  >
+                    Save & Apply Settings
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3 py-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Password</label>
+                    <input 
+                      type="password" 
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">New Password</label>
+                    <input 
+                      type="password" 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Confirm New Password</label>
+                    <input 
+                      type="password" 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+
+                  {securityMessage && (
+                    <div className={`p-2.5 rounded-xl border text-xs font-bold text-center ${
+                      securityMessage.type === 'success' 
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                        : 'bg-red-500/10 border-red-500/20 text-red-400'
+                    }`}>
+                      {securityMessage.text}
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => {
+                      if (!oldPassword || !newPassword || !confirmPassword) {
+                        setSecurityMessage({ text: 'All fields are required!', type: 'error' });
+                        return;
+                      }
+                      if (newPassword.length < 6) {
+                        setSecurityMessage({ text: 'Password must be at least 6 characters long!', type: 'error' });
+                        return;
+                      }
+                      if (newPassword !== confirmPassword) {
+                        setSecurityMessage({ text: 'Passwords do not match!', type: 'error' });
+                        return;
+                      }
+                      
+                      setSecurityMessage({ text: 'Password updated successfully!', type: 'success' });
+                      setOldPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                      setTimeout(() => setSecurityMessage(null), 3000);
+                    }}
+                    className="w-full h-10 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors mt-4"
+                  >
+                    Change Password Options
+                  </button>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
