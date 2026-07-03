@@ -98,6 +98,44 @@ export default function DashboardPage() {
     { id: '3', name: 'Morning Meditation', currentStreak: 8, longestStreak: 20, completedToday: false }
   ]);
 
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Load from localStorage on client-mount to prevent Next.js hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+    
+    const storedGoals = localStorage.getItem('momentum_goals');
+    if (storedGoals) {
+      try {
+        setGoals(JSON.parse(storedGoals));
+      } catch (e) {
+        console.error('Failed to parse stored goals:', e);
+      }
+    }
+    
+    const storedHabits = localStorage.getItem('momentum_habits');
+    if (storedHabits) {
+      try {
+        setHabits(JSON.parse(storedHabits));
+      } catch (e) {
+        console.error('Failed to parse stored habits:', e);
+      }
+    }
+  }, []);
+
+  // Save goals and habits to localStorage when state changes
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('momentum_goals', JSON.stringify(goals));
+    }
+  }, [goals, isMounted]);
+
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('momentum_habits', JSON.stringify(habits));
+    }
+  }, [habits, isMounted]);
+
   // States for friends
   const [friendCode, setFriendCode] = useState('MOMENTUM-XJ8A2K');
   const [searchCode, setSearchCode] = useState('');
