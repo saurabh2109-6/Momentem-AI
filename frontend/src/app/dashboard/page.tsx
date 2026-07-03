@@ -573,22 +573,6 @@ export default function DashboardPage() {
             </button>
           </nav>
         </div>
-
-        {/* User profile quick view */}
-        <div className="pt-6 border-t border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-sm text-white">
-              U
-            </div>
-            <div>
-              <p className="text-sm font-bold leading-tight">alex_coder</p>
-              <p className="text-[10px] text-muted-foreground">Premium Account</p>
-            </div>
-          </div>
-          <Link href="/" className="text-muted-foreground hover:text-white transition-colors">
-            <LogOut className="w-4 h-4" />
-          </Link>
-        </div>
       </aside>
 
       {/* Main Workspace content */}
@@ -602,8 +586,25 @@ export default function DashboardPage() {
             {activeView === 'analytics' && 'Consistency Metrics'}
             {activeView === 'ai' && 'AI Planning Assistant'}
           </h2>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Server: <strong className="text-emerald-400">Firebase Local Fallback</strong></span>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 text-[10px] text-muted-foreground bg-white/5 border border-white/5 px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Local Fallback Mode</span>
+            </div>
+            <div className="flex items-center gap-3 border-l border-white/15 pl-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-xs text-white">
+                  A
+                </div>
+                <div className="text-left hidden md:block">
+                  <p className="text-xs font-bold leading-tight text-white">alex_coder</p>
+                  <p className="text-[9px] text-muted-foreground">Premium</p>
+                </div>
+              </div>
+              <Link href="/" className="text-muted-foreground hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5" title="Log Out">
+                <LogOut className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         </header>
 
