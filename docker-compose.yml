@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: momentum-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: momentum
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - momentum-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: momentum-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    networks:
+      - momentum-network
+
+  maildev:
+    image: maildev/maildev:latest
+    container_name: momentum-maildev
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+    networks:
+      - momentum-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  momentum-network:
+    driver: bridge

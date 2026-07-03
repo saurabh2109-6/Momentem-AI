@@ -1,0 +1,186 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum GoalStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+  ARCHIVED
+}
+
+enum GoalPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  username      String       @unique
+  passwordHash  String       // Fallback / encrypted auth key
+  role          Role         @default(USER)
+  isVerified    Boolean      @default(false)
+  xp            Int          @default(0)
+  level         Int          @default(1)
+  currentStreak Int          @default(0)
+  longestStreak Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?    // Soft delete support
+
+  profile       Profile?
+  sessions      Session[]
+  goals         Goal[]
+  habits        Habit[]
+  comments      Comment[]
+  reactions     Reaction[]
+  auditLogs     AuditLog[]
+
+  // Accountability relations
+  sentRequests     Friendship[] @relation("SentFriendships")
+  receivedRequests Friendship[] @relation("ReceivedFriendships")
+
+  @@index([email])
+  @@index([username])
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  displayName String
+  bio         String?
+  avatarUrl   String?
+  timezone    String   @default("UTC")
+  country     String?
+  friendCode  String   @unique
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Friendship {
+  id          String   @id @default(uuid())
+  senderId    String
+  receiverId  String
+  status      String   // "PENDING" | "ACCEPTED" | "BLOCKED"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sender      User     @relation("SentFriendships", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User     @relation("ReceivedFriendships", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model Goal {
+  id            String       @id @default(uuid())
+  userId        String
+  title         String
+  description   String?
+  status        GoalStatus   @default(TODO)
+  priority      GoalPriority @default(MEDIUM)
+  category      String       @default("Work")
+  estimatedTime Int          @default(30) // in minutes
+  actualTime    Int          @default(0)
+  startAt       DateTime
+  endAt         DateTime
+  notified      Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  reactions     Reaction[]
+
+  @@index([userId])
+}
+
+model Habit {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  description   String?
+  frequency     String
+  daysOfWeek    Int[]
+  logs          Json     // stores JSON logs { "2026-07-03": true }
+  currentStreak Int      @default(0)
+  longestStreak Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  goalId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  goalId    String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, userId, emoji])
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  userId     String
+  tokenHash  String   @unique
+  ipAddress  String?
+  deviceInfo String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String   // e.g. "USER_LOGIN", "OTP_FAILED"
+  ipAddress  String?
+  deviceInfo String?
+  details    String?
+  timestamp  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([timestamp])
+}
