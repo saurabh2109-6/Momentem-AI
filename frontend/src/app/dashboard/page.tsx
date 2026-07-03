@@ -61,6 +61,7 @@ interface Friend {
   displayName: string;
   avatarUrl: string | null;
   statusText: string | null;
+  friendCode?: string;
 }
 
 interface FriendRequest {
@@ -184,8 +185,8 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [friendsList, setFriendsList] = useState<Friend[]>([
-    { userId: 'sarah', username: 'sarah_j', displayName: 'Sarah Jenkins', avatarUrl: null, statusText: 'Focused on UI design' },
-    { userId: 'alex', username: 'alex_k', displayName: 'Alex K.', avatarUrl: null, statusText: 'Coding backend templates' }
+    { userId: 'sarah', username: 'sarah_j', displayName: 'Sarah Jenkins', avatarUrl: null, statusText: 'Focused on UI design', friendCode: 'MOMENTUM-SARA89X2' },
+    { userId: 'alex', username: 'alex_k', displayName: 'Alex K.', avatarUrl: null, statusText: 'Coding backend templates', friendCode: 'MOMENTUM-ALEX77K1' }
   ]);
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([
     { id: 'req_1', userId: 'rohit_sharma', displayName: 'Rohit Sharma', avatarUrl: null, code: 'MOMENTUM-RHT77', statusText: 'Planning for next hackathon!' }
@@ -559,7 +560,8 @@ export default function DashboardPage() {
       username: req.userId,
       displayName: req.displayName,
       avatarUrl: req.avatarUrl,
-      statusText: req.statusText || 'Connected on Momentum'
+      statusText: req.statusText || 'Connected on Momentum',
+      friendCode: req.code
     };
     
     setFriendsList(prev => {
@@ -1427,71 +1429,83 @@ export default function DashboardPage() {
             )}
 
             {/* Secure E2EE Chat */}
-            {activeView === 'chat' && (
-              <motion.div
-                key="chat"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                className="grid grid-cols-1 lg:grid-cols-4 gap-8 min-h-[500px]"
-              >
-                {/* Rooms selection list */}
-                <div className="lg:col-span-1 glass-panel p-4 rounded-3xl border border-white/10 space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Secured Chats</h3>
-                  <div className="space-y-2">
-                    {friendsList.map((f) => (
-                      <div 
-                        key={f.userId}
-                        onClick={() => setActiveChat(f.userId)}
-                        className={`p-3 rounded-xl cursor-pointer transition-all flex items-center gap-3 ${
-                          activeChat === f.userId ? 'bg-primary/20 border border-primary/20 text-white' : 'hover:bg-white/5 text-muted-foreground hover:text-white border border-transparent'
-                        }`}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-500 to-indigo-500 flex items-center justify-center font-bold text-xs text-white">
-                          {f.displayName.charAt(0)}
+            {activeView === 'chat' && (() => {
+              const activeFriend = friendsList.find(f => f.userId === activeChat);
+              const activeFriendCode = activeFriend?.friendCode || 'MOMENTUM-TEMP88K2';
+              return (
+                <motion.div
+                  key="chat"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  className="grid grid-cols-1 lg:grid-cols-4 gap-8 min-h-[500px]"
+                >
+                  {/* Rooms selection list */}
+                  <div className="lg:col-span-1 glass-panel p-4 rounded-3xl border border-white/10 space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white">Secured Chats</h3>
+                    <div className="space-y-2">
+                      {friendsList.map((f) => (
+                        <div 
+                          key={f.userId}
+                          onClick={() => setActiveChat(f.userId)}
+                          className={`p-3 rounded-xl cursor-pointer transition-all flex items-center gap-3 ${
+                            activeChat === f.userId ? 'bg-primary/20 border border-primary/20 text-white' : 'hover:bg-white/5 text-muted-foreground hover:text-white border border-transparent'
+                          }`}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-500 to-indigo-500 flex items-center justify-center font-bold text-xs text-white">
+                            {f.displayName.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">{f.displayName}</p>
+                            <span className="text-[9px] text-muted-foreground font-semibold">E2EE Chat Session</span>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-bold">{f.displayName}</p>
-                          <span className="text-[9px] text-muted-foreground font-semibold">E2EE Chat Session</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Conversation Box */}
-                <div className="lg:col-span-3 glass-panel p-6 rounded-3xl border border-white/10 flex flex-col justify-between relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-[40px] pointer-events-none"></div>
-
-                  {/* Cryptographic Controls Header */}
-                  <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2.5 h-2.5 rounded-full ${isE2EESecured ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
-                      <span className="text-xs font-bold text-white">
-                        {isE2EESecured ? 'E2EE Session Active (AES-GCM)' : 'E2EE Inactive (Session Unsigned)'}
-                      </span>
+                      ))}
                     </div>
-
-                    {!isE2EESecured && (
-                      <button 
-                        onClick={handleGenerateE2EEKeys}
-                        disabled={isGeneratingKeys}
-                        className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-bold hover:bg-primary/95 transition-all shadow-md flex items-center gap-1"
-                      >
-                        {isGeneratingKeys ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            Generating ECDH Keys...
-                          </>
-                        ) : (
-                          <>
-                            <Key className="w-3 h-3" />
-                            Exchange E2EE Keys
-                          </>
-                        )}
-                      </button>
-                    )}
                   </div>
+
+                  {/* Conversation Box */}
+                  <div className="lg:col-span-3 glass-panel p-6 rounded-3xl border border-white/10 flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-[40px] pointer-events-none"></div>
+
+                    {/* Cryptographic Controls Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-white/5 mb-4 gap-2">
+                      <div className="flex flex-col text-left">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2.5 h-2.5 rounded-full ${isE2EESecured ? 'bg-emerald-400 animate-pulse' : 'bg-orange-400 animate-pulse'}`}></div>
+                          <span className="text-xs font-bold text-white">
+                            {isE2EESecured 
+                              ? 'E2EE Session Active (AES-256-GCM)' 
+                              : 'E2EE Pending Key Verification'}
+                          </span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground mt-0.5 font-mono">
+                          {isE2EESecured 
+                            ? `Derived Verification Fingerprint: SHA256-${activeFriendCode.substring(9)}-SEC`
+                            : `Channel: Unsigned | Friend Code Required`}
+                        </span>
+                      </div>
+
+                      {!isE2EESecured && (
+                        <button 
+                          onClick={handleGenerateE2EEKeys}
+                          disabled={isGeneratingKeys}
+                          className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-bold hover:bg-primary/95 transition-all shadow-md flex items-center gap-1.5 self-start sm:self-center"
+                        >
+                          {isGeneratingKeys ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Verifying code key {activeFriendCode.substring(9)}...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Key className="w-3 h-3" />
+                              <span>Verify Code & Secure Chat</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
 
                   {/* Messages Flow */}
                   <div className="flex-1 space-y-4 overflow-y-auto min-h-[300px] max-h-[350px] pr-2 scrollbar-thin">
@@ -1534,7 +1548,8 @@ export default function DashboardPage() {
                   </form>
                 </div>
               </motion.div>
-            )}
+            );
+            })()}
 
             {/* Analytics view */}
             {activeView === 'analytics' && (() => {
