@@ -3,7 +3,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { JwtService } from '@nestjs/jwt';
-import { MailService } from '../mail/mail.service';
+import { EmailService } from '../email/interfaces/email-service.interface';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -44,7 +44,7 @@ describe('AuthService', () => {
           },
         },
         {
-          provide: MailService,
+          provide: EmailService,
           useValue: {
             sendOtpMail: jest.fn().mockResolvedValue(undefined),
           },

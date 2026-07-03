@@ -2,7 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException, BadRequestExcepti
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { MailService } from '../mail/mail.service';
+import { EmailService } from '../email/interfaces/email-service.interface';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/otp.dto';
@@ -17,7 +17,7 @@ export class AuthService {
     private prisma: PrismaService,
     private redis: RedisService,
     private jwtService: JwtService,
-    private mailService: MailService,
+    private emailService: EmailService,
   ) {}
 
   /**
@@ -242,7 +242,7 @@ export class AuthService {
     this.logger.log(`[OTP Verification] Generated code for ${email}: ${otpCode}`);
 
     // Dispatch real email or console fallback
-    await this.mailService.sendOtpMail(email, otpCode);
+    await this.emailService.sendOtpMail(email, otpCode);
 
     return { message: 'Verification OTP code sent successfully' };
   }

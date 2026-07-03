@@ -1,101 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import axios from 'axios';
+import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class MailService {
-  private readonly logger = new Logger(MailService.name);
-  private transporter!: nodemailer.Transporter;
-
-  constructor(private config: ConfigService) {
-    this.initializeTransporter();
-  }
-
-  private initializeTransporter() {
-    const host = this.config.get<string>('SMTP_HOST') || 'localhost';
-    const port = Number(this.config.get<number>('SMTP_PORT')) || 1025;
-    const user = this.config.get<string>('SMTP_USER') || '';
-    const pass = this.config.get<string>('SMTP_PASSWORD') || '';
-
-    const options: any = {
-      host,
-      port,
-      secure: port === 465,
-    };
-
-    if (user && pass) {
-      options.auth = { user, pass };
-    }
-
-    this.transporter = nodemailer.createTransport(options);
-  }
-
-  /**
-   * Dispatches the verification email containing the OTP code.
-   * Utilizes Resend API (default) or falls back to SMTP/Nodemailer based on configurations.
-   */
-  async sendOtpMail(to: string, code: string) {
-    const provider = this.config.get<string>('EMAIL_PROVIDER') || 'resend';
-    const subject = 'Momentum AI Verification Code';
-    const htmlContent = this.getOtpEmailTemplate(code);
-
-    if (provider === 'resend') {
-      const apiKey = this.config.get<string>('RESEND_API_KEY');
-      const from = this.config.get<string>('RESEND_FROM') || 'onboarding@resend.dev';
-
-      if (apiKey) {
-        try {
-          await axios.post(
-            'https://api.resend.com/emails',
-            {
-              from,
-              to: [to],
-              subject,
-              html: htmlContent,
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-              },
-            },
-          );
-          this.logger.log(`OTP verification email sent via Resend API successfully to ${to}`);
-          return;
-        } catch (err: any) {
-          const errMsg = err.response?.data?.message || err.message;
-          this.logger.error(`Resend API failed: ${errMsg}. Falling back to Nodemailer SMTP...`);
-        }
-      } else {
-        this.logger.warn('RESEND_API_KEY missing. Falling back to Nodemailer SMTP...');
-      }
-    }
-
-    // Nodemailer SMTP fallback delivery
-    const from = this.config.get<string>('SMTP_FROM') || 'noreply@momentumai.app';
-    try {
-      await this.transporter.sendMail({
-        from,
-        to,
-        subject,
-        html: htmlContent,
-        text: `Your Momentum AI Verification Code is: ${code}. Valid for 5 minutes.`,
-      });
-      this.logger.log(`OTP verification email sent via SMTP successfully to ${to}`);
-    } catch (err: any) {
-      this.logger.error(`SMTP delivery failed: ${err.message}. Local debugging console fallback active.`);
-      this.logger.log(`\n======================================================`);
-      this.logger.log(`[LOCAL DEV FALLBACK] Verification code for ${to} is: ${code}`);
-      this.logger.log(`======================================================\n`);
-    }
-  }
-
+export class EmailTemplateService {
   /**
    * Premium responsive HTML template supporting dark mode styling, professional typography,
    * mobile responsiveness, company branding, and security alerts.
    */
-  private getOtpEmailTemplate(code: string): string {
+  getOtpTemplate(code: string): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -164,6 +75,12 @@ export class MailService {
             background-color: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.04);
           }
+          .ignore-msg {
+            font-size: 12px;
+            color: #71717a;
+            margin-top: 16px;
+            text-align: center;
+          }
           .footer {
             margin-top: 40px;
             text-align: center;
@@ -193,6 +110,9 @@ export class MailService {
           <div class="alert">
             <strong>Security Warning:</strong> Never share this verification code with anyone. Momentum AI support agents will never request this PIN. If you did not trigger this login or signup block, change your security credentials immediately.
           </div>
+          <p class="ignore-msg">
+            If you did not request this email, you can safely ignore it. No actions will be taken on your account.
+          </p>
           <div class="footer">
             Sent securely by Momentum AI © 2026. <br>
             For assistance, contact <a href="mailto:support@momentumai.app">support@momentumai.app</a>
