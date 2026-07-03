@@ -97,6 +97,9 @@ export default function DashboardPage() {
     { id: '2', name: 'Read 15 Pages', currentStreak: 3, longestStreak: 15, completedToday: true },
     { id: '3', name: 'Morning Meditation', currentStreak: 8, longestStreak: 20, completedToday: false }
   ]);
+  const [isAddingHabit, setIsAddingHabit] = useState(false);
+  const [newHabitName, setNewHabitName] = useState('');
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
   const [isMounted, setIsMounted] = useState(false);
 
@@ -515,13 +518,21 @@ export default function DashboardPage() {
 
                 {/* Habit Streaks grid */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Today's Habit Tracker</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Today's Habit Tracker</h3>
+                    <button 
+                      onClick={() => setIsAddingHabit(true)} 
+                      className="text-xs text-primary hover:underline font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Habit
+                    </button>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {habits.map((habit) => (
                       <div 
                         key={habit.id} 
                         onClick={() => handleToggleHabit(habit.id)}
-                        className={`glass-panel p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center ${
+                        className={`glass-panel p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center group ${
                           habit.completedToday ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 hover:border-white/20'
                         }`}
                       >
@@ -532,10 +543,34 @@ export default function DashboardPage() {
                             <span>{habit.currentStreak} Day Streak</span>
                           </div>
                         </div>
-                        <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
-                          habit.completedToday ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/20'
-                        }`}>
-                          {habit.completedToday && <CheckCircle2 className="w-4 h-4" />}
+                        <div className="flex items-center gap-2">
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity duration-200">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingHabit(habit);
+                              }}
+                              className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+                              title="Edit habit"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setHabits(prev => prev.filter(h => h.id !== habit.id));
+                              }}
+                              className="p-1 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                              title="Delete habit"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors shrink-0 ${
+                            habit.completedToday ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/20'
+                          }`}>
+                            {habit.completedToday && <CheckCircle2 className="w-4 h-4" />}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1202,6 +1237,125 @@ export default function DashboardPage() {
                   onClick={() => {
                     setGoals(prev => prev.map(g => g.id === editingGoal.id ? editingGoal : g));
                     setEditingGoal(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Habit Modal */}
+      <AnimatePresence>
+        {isAddingHabit && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-panel w-full max-w-sm p-6 rounded-3xl border border-white/15 space-y-4 shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-white">Create New Habit</h3>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Habit Name</label>
+                <input 
+                  type="text" 
+                  value={newHabitName}
+                  onChange={(e) => setNewHabitName(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                  placeholder="e.g. Drink 3L Water"
+                />
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button 
+                  onClick={() => {
+                    setIsAddingHabit(false);
+                    setNewHabitName('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm font-semibold transition-colors text-white"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    if (!newHabitName.trim()) return;
+                    const newHabit = {
+                      id: `habit_${Date.now()}`,
+                      name: newHabitName,
+                      currentStreak: 0,
+                      longestStreak: 0,
+                      completedToday: false
+                    };
+                    setHabits(prev => [newHabit, ...prev]);
+                    setIsAddingHabit(false);
+                    setNewHabitName('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  Create Habit
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modify Habit Modal */}
+      <AnimatePresence>
+        {editingHabit && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-panel w-full max-w-sm p-6 rounded-3xl border border-white/15 space-y-4 shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-white">Modify Habit</h3>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Habit Name</label>
+                  <input 
+                    type="text" 
+                    value={editingHabit.name}
+                    onChange={(e) => setEditingHabit({ ...editingHabit, name: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Current Streak</label>
+                    <input 
+                      type="number" 
+                      value={editingHabit.currentStreak}
+                      onChange={(e) => setEditingHabit({ ...editingHabit, currentStreak: Math.max(0, Number(e.target.value)) })}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Longest Streak</label>
+                    <input 
+                      type="number" 
+                      value={editingHabit.longestStreak}
+                      onChange={(e) => setEditingHabit({ ...editingHabit, longestStreak: Math.max(0, Number(e.target.value)) })}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button 
+                  onClick={() => setEditingHabit(null)}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm font-semibold transition-colors text-white"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    setHabits(prev => prev.map(h => h.id === editingHabit.id ? editingHabit : h));
+                    setEditingHabit(null);
                   }}
                   className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
                 >
