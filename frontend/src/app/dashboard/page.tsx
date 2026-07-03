@@ -24,7 +24,9 @@ import {
   MessageCircle,
   Clock,
   Unlock,
-  Key
+  Key,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -82,6 +84,12 @@ export default function DashboardPage() {
   const [newGoalPriority, setNewGoalPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [newGoalCategory, setNewGoalCategory] = useState('Work');
   const [newGoalEstimated, setNewGoalEstimated] = useState(30);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  const handleDeleteGoal = (goalId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGoals(prev => prev.filter(g => g.id !== goalId));
+  };
 
   // States for habits
   const [habits, setHabits] = useState<Habit[]>([
@@ -524,7 +532,7 @@ export default function DashboardPage() {
                             <p className="text-xs text-muted-foreground mt-0.5">{g.description}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
                             g.priority === 'URGENT' ? 'bg-red-500/20 text-red-400' :
                             g.priority === 'HIGH' ? 'bg-orange-500/20 text-orange-400' :
@@ -533,6 +541,23 @@ export default function DashboardPage() {
                           }`}>
                             {g.priority}
                           </span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingGoal(g);
+                            }}
+                            className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+                            title="Edit task"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button 
+                            onClick={(e) => handleDeleteGoal(g.id, e)}
+                            className="p-1 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                            title="Delete task"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -564,7 +589,7 @@ export default function DashboardPage() {
 
                     <div className="space-y-4">
                       {goals.map((g) => (
-                        <div key={g.id} className="p-4 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                        <div key={g.id} className="p-4 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between hover:border-white/10 transition-colors">
                           <div className="flex items-center gap-3">
                             <div className="w-1.5 h-8 rounded bg-primary"></div>
                             <div>
@@ -572,7 +597,24 @@ export default function DashboardPage() {
                               <span className="text-xs text-muted-foreground block mt-0.5">{g.category} • {g.estimatedTime || 30} mins</span>
                             </div>
                           </div>
-                          <span className="text-xs px-2 py-0.5 rounded bg-white/5 border border-white/10 text-muted-foreground font-mono">11:00 AM</span>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => setEditingGoal(g)}
+                              className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+                              title="Edit task"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                setGoals(prev => prev.filter(item => item.id !== g.id));
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                              title="Delete task"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1053,6 +1095,85 @@ export default function DashboardPage() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Edit Goal Modal Overlay */}
+      <AnimatePresence>
+        {editingGoal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-panel w-full max-w-md p-6 rounded-3xl border border-white/15 space-y-4 shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-white">Modify Task</h3>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Title</label>
+                  <input 
+                    type="text" 
+                    value={editingGoal.title}
+                    onChange={(e) => setEditingGoal({ ...editingGoal, title: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                    placeholder="Task title"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Description</label>
+                  <input 
+                    type="text" 
+                    value={editingGoal.description || ''}
+                    onChange={(e) => setEditingGoal({ ...editingGoal, description: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                    placeholder="Brief description"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Priority</label>
+                    <select 
+                      value={editingGoal.priority}
+                      onChange={(e) => setEditingGoal({ ...editingGoal, priority: e.target.value as any })}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                    >
+                      <option value="LOW" className="bg-zinc-950">LOW</option>
+                      <option value="MEDIUM" className="bg-zinc-950">MEDIUM</option>
+                      <option value="HIGH" className="bg-zinc-950">HIGH</option>
+                      <option value="URGENT" className="bg-zinc-950">URGENT</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Minutes</label>
+                    <input 
+                      type="number" 
+                      value={editingGoal.estimatedTime || 30}
+                      onChange={(e) => setEditingGoal({ ...editingGoal, estimatedTime: Number(e.target.value) })}
+                      className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-primary text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button 
+                  onClick={() => setEditingGoal(null)}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm font-semibold transition-colors text-white"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    setGoals(prev => prev.map(g => g.id === editingGoal.id ? editingGoal : g));
+                    setEditingGoal(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
