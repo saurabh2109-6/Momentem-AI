@@ -13,7 +13,7 @@ const LOG_FILE_PATH = path.join(
   'd128ee28-93ed-46c8-b316-8fb0805a2db1',
   '.system_generated',
   'tasks',
-  'task-1363.log'
+  'task-1413.log'
 );
 
 async function runHttpApiCheck() {
