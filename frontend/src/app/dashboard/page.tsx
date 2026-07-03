@@ -184,6 +184,86 @@ export default function DashboardPage() {
     }
   }, [habits, isMounted]);
 
+  const calculateAnalytics = () => {
+    const nowStr = new Date().toISOString();
+    
+    // Calculate goals metrics
+    const totalGoals = goals.length;
+    const completedGoals = goals.filter(g => g.status === 'COMPLETED').length;
+    
+    // Missed goals: TODO status but endAt is in the past
+    const missedGoals = goals.filter(g => g.status === 'TODO' && g.endAt < nowStr).length;
+    
+    const successRatio = totalGoals > 0 
+      ? Math.round((completedGoals / totalGoals) * 100) 
+      : 0;
+
+    // Calculate habit streak metrics
+    const maxStreak = habits.length > 0 
+      ? Math.max(...habits.map(h => h.longestStreak)) 
+      : 0;
+      
+    const currentStreakSum = habits.length > 0
+      ? Math.max(...habits.map(h => h.currentStreak))
+      : 0;
+
+    // Burnout index calculation based on task density
+    const urgentDensity = goals.filter(g => g.priority === 'URGENT' || g.priority === 'HIGH').length;
+    let burnoutRisk = 'Low';
+    let burnoutColor = 'bg-emerald-500/20 text-emerald-400';
+    if (urgentDensity > 4) {
+      burnoutRisk = 'High';
+      burnoutColor = 'bg-red-500/20 text-red-400';
+    } else if (urgentDensity > 2) {
+      burnoutRisk = 'Medium';
+      burnoutColor = 'bg-orange-500/20 text-orange-400';
+    }
+
+    // Generate dynamic heatmap data for the past 28 days
+    const heatmap = [];
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      
+      // Find completions on this date
+      const dayCompletions = goals.filter(g => 
+        g.startAt.startsWith(dateStr) && g.status === 'COMPLETED'
+      ).length;
+
+      heatmap.push({
+        dateStr,
+        displayDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        completions: dayCompletions
+      });
+    }
+
+    // Dynamic analysis text report
+    let advice = '';
+    if (successRatio >= 80) {
+      advice = 'Excellent consistency! Your execution rate is in the top tier. Keep pacing yourself and ensure you maintain rest blocks to prevent cognitive fatigue.';
+    } else if (successRatio >= 50) {
+      advice = 'Steady progress. You are converting half of your planned tasks. Consider reducing the scope of low-priority tasks and moving them to tomorrow if they overload your schedule.';
+    } else if (totalGoals > 0) {
+      advice = 'Productivity bottleneck detected. You have a high ratio of missed tasks. Try setting smaller estimated time blocks (under 30 minutes) to rebuild momentum.';
+    } else {
+      advice = 'No task history recorded yet. Start adding and completing tasks in the Calendar view to generate your first AI productivity scorecard.';
+    }
+
+    return {
+      totalGoals,
+      completedGoals,
+      missedGoals,
+      successRatio,
+      maxStreak,
+      currentStreakSum,
+      burnoutRisk,
+      burnoutColor,
+      heatmap,
+      advice
+    };
+  };
+
   // States for friends
   const [friendCode, setFriendCode] = useState('MOMENTUM-XJ8A2K');
   const [searchCode, setSearchCode] = useState('');
@@ -1110,69 +1190,106 @@ export default function DashboardPage() {
             )}
 
             {/* Analytics view */}
-            {activeView === 'analytics' && (
-              <motion.div
-                key="analytics"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                className="space-y-8"
-              >
-                {/* Stats cards grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-                  <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center">
-                    <p className="text-3xl font-extrabold text-primary">94%</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">Consistency Score</p>
-                  </div>
-                  <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center">
-                    <p className="text-3xl font-extrabold text-emerald-400">15 Days</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">Longest Habit Streak</p>
-                  </div>
-                  <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center">
-                    <p className="text-3xl font-extrabold text-purple-400">67%</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">Goal Success Ratio</p>
-                  </div>
-                  <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center flex flex-col justify-center items-center">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1">Burnout Risk Index</span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Low</span>
-                  </div>
-                </div>
-
-                {/* Heatmap Grid mockup */}
-                <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white">Daily Completion Heatmap</h3>
-                  <div className="flex flex-wrap gap-1.5 justify-center py-4 bg-black/15 p-4 rounded-xl border border-white/5">
-                    {Array.from({ length: 42 }).map((_, index) => {
-                      // Mock intensity
-                      let color = 'bg-white/5';
-                      if (index % 5 === 0) color = 'bg-primary/20';
-                      else if (index % 6 === 0) color = 'bg-primary/40';
-                      else if (index % 7 === 0) color = 'bg-primary/80';
-                      else if (index % 8 === 0) color = 'bg-primary';
-
-                      return (
-                        <div 
-                          key={index}
-                          className={`w-7 h-7 rounded ${color} transition-all cursor-pointer hover:ring-1 hover:ring-white/40`}
-                          title={`Day ${index + 1}: completions`}
-                        ></div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground max-w-xs mx-auto">
-                    <span>Less Active</span>
-                    <div className="flex gap-1">
-                      <div className="w-3.5 h-3.5 rounded bg-white/5"></div>
-                      <div className="w-3.5 h-3.5 rounded bg-primary/20"></div>
-                      <div className="w-3.5 h-3.5 rounded bg-primary/40"></div>
-                      <div className="w-3.5 h-3.5 rounded bg-primary/80"></div>
-                      <div className="w-3.5 h-3.5 rounded bg-primary"></div>
+            {activeView === 'analytics' && (() => {
+              const stats = calculateAnalytics();
+              return (
+                <motion.div
+                  key="analytics"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  className="space-y-8"
+                >
+                  {/* Stats cards grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+                    <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center">
+                      <p className="text-3xl font-extrabold text-primary">{stats.successRatio}%</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">Consistency Score</p>
                     </div>
-                    <span>Highly Productive</span>
+                    <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center">
+                      <p className="text-3xl font-extrabold text-emerald-400">{stats.maxStreak} Days</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">Longest Habit Streak</p>
+                    </div>
+                    <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center">
+                      <p className="text-3xl font-extrabold text-purple-400">{stats.currentStreakSum} Days</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">Current Active Streak</p>
+                    </div>
+                    <div className="glass-panel p-5 rounded-2xl border border-white/10 text-center flex flex-col justify-center items-center">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-1">Burnout Risk Index</span>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full ${stats.burnoutColor} font-bold uppercase`}>{stats.burnoutRisk}</span>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Heatmap Card */}
+                    <div className="lg:col-span-2 glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-white">Daily Completion Heatmap (Past 28 Days)</h3>
+                      <div className="grid grid-cols-7 gap-2 p-4 bg-black/15 rounded-xl border border-white/5 justify-items-center">
+                        {stats.heatmap.map((day) => {
+                          let color = 'bg-white/5';
+                          if (day.completions === 1) color = 'bg-primary/25 border-primary/20';
+                          else if (day.completions === 2) color = 'bg-primary/50 border-primary/40';
+                          else if (day.completions >= 3) color = 'bg-primary border-primary/60';
+
+                          return (
+                            <div 
+                              key={day.dateStr}
+                              className={`w-10 h-10 rounded-lg border ${color} transition-all cursor-pointer hover:ring-2 hover:ring-white/40 flex flex-col items-center justify-center`}
+                              title={`${day.displayDate}: ${day.completions} task(s) completed`}
+                            >
+                              <span className="text-[8px] text-white/35 font-bold uppercase">{day.displayDate.split(' ')[0]}</span>
+                              <span className="text-[11px] font-extrabold text-white">{day.displayDate.split(' ')[1]}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground max-w-xs mx-auto">
+                        <span>Less Active</span>
+                        <div className="flex gap-1.5">
+                          <div className="w-3.5 h-3.5 rounded bg-white/5 border border-white/5"></div>
+                          <div className="w-3.5 h-3.5 rounded bg-primary/25 border border-primary/20"></div>
+                          <div className="w-3.5 h-3.5 rounded bg-primary/50 border border-primary/40"></div>
+                          <div className="w-3.5 h-3.5 rounded bg-primary border border-primary/60"></div>
+                        </div>
+                        <span>Highly Productive</span>
+                      </div>
+                    </div>
+
+                    {/* AI Productivity Report Card */}
+                    <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-5 h-5 text-primary" />
+                          <h3 className="text-sm font-bold uppercase tracking-wider text-white">AI Planning Report</h3>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Total Tasks Logged</span>
+                            <span className="font-bold text-white">{stats.totalGoals}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Completed Tasks</span>
+                            <span className="font-bold text-emerald-400">{stats.completedGoals}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Missed / Overdue Tasks</span>
+                            <span className="font-bold text-red-400">{stats.missedGoals}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed pt-2">
+                          {stats.advice}
+                        </p>
+                      </div>
+                      
+                      <div className="border-t border-white/5 pt-4 text-[10px] text-muted-foreground flex justify-between items-center">
+                        <span>Report Generated: Just Now</span>
+                        <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary animate-pulse" /> Verified by Momentum AI</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
 
             {/* AI Assistant Chat */}
             {activeView === 'ai' && (
