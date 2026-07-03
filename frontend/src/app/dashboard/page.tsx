@@ -33,6 +33,7 @@ import {
   Copy
 } from 'lucide-react';
 import Link from 'next/link';
+import { api } from '@/utils/api';
 
 // Mock initial data structures
 interface Goal {
@@ -220,8 +221,29 @@ export default function DashboardPage() {
     { sender: 'ai', text: 'Hello! I am Momentum AI. I have analyzed your planner. Type "optimize" to auto-arrange your tasks, or ask me tips to rebuild your streak.' }
   ]);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [isMounted, setIsMounted] = useState(false);
+
+  const fetchFriendsData = async () => {
+    try {
+      const friendsRes = await api.get('/friends');
+      setFriendsList(friendsRes.data);
+      
+      const pendingRes = await api.get('/friends/pending');
+      const mappedRequests = pendingRes.data.map((req: any) => ({
+        id: `req_${req.userId}`,
+        userId: req.userId,
+        displayName: req.displayName || req.userId,
+        avatarUrl: req.avatarUrl || null,
+        code: req.friendCode || '',
+        statusText: 'Sent you a friend request'
+      }));
+      setIncomingRequests(mappedRequests);
+    } catch (err) {
+      console.error('Failed to fetch friends data:', err);
+    }
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -231,6 +253,28 @@ export default function DashboardPage() {
       window.location.href = '/auth';
       return;
     }
+
+    // Fetch live profile details and friends from backend REST APIs
+    const loadBackendData = async () => {
+      try {
+        const profileRes = await api.get('/profile/me');
+        if (profileRes.data) {
+          if (profileRes.data.friendCode) {
+            setFriendCode(profileRes.data.friendCode);
+            localStorage.setItem('momentum_friend_code', profileRes.data.friendCode);
+          }
+          if (profileRes.data.displayName) {
+            setProfileDisplayName(profileRes.data.displayName);
+            localStorage.setItem('momentum_profile_display_name', profileRes.data.displayName);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user profile from backend:', err);
+      }
+      await fetchFriendsData();
+    };
+
+    loadBackendData();
 
     const storedGoals = localStorage.getItem('momentum_goals');
     if (storedGoals) {
@@ -515,105 +559,110 @@ export default function DashboardPage() {
     }));
   };
 
-  const handleSendFriendRequest = (e: React.FormEvent) => {
+  const handleSendFriendRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchCode.trim()) return;
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      const code = searchCode.toUpperCase().trim();
-      if (code === 'MOMENTUM-RHT77') {
-        const req = incomingRequests.find(r => r.userId === 'rohit_sharma');
-        if (req) {
-          handleAcceptRequest(req);
-        } else {
-          setFriendRequestSuccess(true);
-        }
-      } else if (code.includes('KABIR') || code === 'MOMENTUM-KBR88') {
-        const kabirFriend: Friend = {
-          userId: 'kabir_ai',
-          username: 'kabir_ai',
-          displayName: 'Kabir AI',
-          avatarUrl: null,
-          statusText: 'Fine-tuning LLM pipelines'
-        };
-        setFriendsList(prev => {
-          if (prev.some(f => f.userId === kabirFriend.userId)) return prev;
-          return [...prev, kabirFriend];
-        });
-        setFriendRequestSuccess(true);
-      } else {
-        setFriendRequestSuccess(true);
-      }
+    setError(null);
+    try {
+      await api.post('/friends/request', { friendCode: searchCode.trim() });
+      setFriendRequestSuccess(true);
       setSearchCode('');
+      await fetchFriendsData();
       setTimeout(() => setFriendRequestSuccess(false), 3000);
-    }, 1000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to send friend request. Check the code.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSearchUsers = (e: React.FormEvent) => {
+  const handleSearchUsers = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
       setSearchResults([]);
       return;
     }
-    const query = searchQuery.toLowerCase().trim();
-    const discoverableUsers: Friend[] = [
-      { userId: 'rohit_sharma', username: 'rohit_sharma', displayName: 'Rohit Sharma', avatarUrl: null, statusText: 'Planning for next hackathon!' },
-      { userId: 'neha_dev', username: 'neha_dev', displayName: 'Neha Dev', avatarUrl: null, statusText: 'Debugging CSS layouts' },
-      { userId: 'kabir_ai', username: 'kabir_ai', displayName: 'Kabir AI', avatarUrl: null, statusText: 'Fine-tuning LLM pipelines' },
-      { userId: 'himaa_w', username: 'himaa_w', displayName: 'Himaa W.', avatarUrl: null, statusText: 'Morning workout complete!' }
-    ];
-    const matches = discoverableUsers.filter(u => 
-      u.username.toLowerCase().includes(query) || 
-      u.displayName.toLowerCase().includes(query)
-    );
-    setSearchResults(matches);
-  };
-
-  const handleSendRequestToUser = (user: Friend) => {
-    setFriendRequestSuccess(true);
-    setTimeout(() => setFriendRequestSuccess(false), 3000);
-  };
-
-  const handleAcceptRequest = (req: FriendRequest) => {
-    const newFriend: Friend = {
-      userId: req.userId,
-      username: req.userId,
-      displayName: req.displayName,
-      avatarUrl: req.avatarUrl,
-      statusText: req.statusText || 'Connected on Momentum',
-      friendCode: req.code
-    };
     
-    setFriendsList(prev => {
-      if (prev.some(f => f.userId === newFriend.userId)) return prev;
-      return [...prev, newFriend];
-    });
-
-    setChatMessages(prev => ({
-      ...prev,
-      [newFriend.userId]: [
-        { sender: newFriend.userId, text: `Hey there! Glad to connect on Momentum.` }
-      ]
-    }));
-
-    setIncomingRequests(prev => prev.filter(r => r.id !== req.id));
-
-    const newActivity: Activity = {
-      id: `act_${Date.now()}`,
-      displayName: req.displayName,
-      type: 'GOAL_COMPLETED',
-      content: `is now connected with you on Momentum. Start planning together!`,
-      createdAt: 'Just now',
-      comments: [],
-      reactions: ['🎉']
-    };
-    setActivities(prev => [newActivity, ...prev]);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await api.get(`/profile/code/${searchQuery.trim()}`);
+      if (res.data) {
+        setSearchResults([{
+          userId: res.data.userId,
+          username: res.data.username || '',
+          displayName: res.data.displayName || res.data.userId,
+          avatarUrl: res.data.avatarUrl || null,
+          statusText: res.data.bio || 'Connected via code',
+          friendCode: res.data.friendCode
+        }]);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err: any) {
+      const query = searchQuery.toLowerCase().trim();
+      const discoverableUsers: Friend[] = [
+        { userId: 'rohit_sharma', username: 'rohit_sharma', displayName: 'Rohit Sharma', avatarUrl: null, statusText: 'Planning for next hackathon!' },
+        { userId: 'neha_dev', username: 'neha_dev', displayName: 'Neha Dev', avatarUrl: null, statusText: 'Debugging CSS layouts' },
+        { userId: 'kabir_ai', username: 'kabir_ai', displayName: 'Kabir AI', avatarUrl: null, statusText: 'Fine-tuning LLM pipelines' },
+        { userId: 'himaa_w', username: 'himaa_w', displayName: 'Himaa W.', avatarUrl: null, statusText: 'Morning workout complete!' }
+      ];
+      const matches = discoverableUsers.filter(u => 
+        u.username.toLowerCase().includes(query) || 
+        u.displayName.toLowerCase().includes(query)
+      );
+      setSearchResults(matches);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRejectRequest = (reqId: string) => {
-    setIncomingRequests(prev => prev.filter(r => r.id !== reqId));
+  const handleSendRequestToUser = async (user: Friend) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (user.friendCode) {
+        await api.post('/friends/request', { friendCode: user.friendCode });
+        setFriendRequestSuccess(true);
+        setTimeout(() => setFriendRequestSuccess(false), 3000);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to send request.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAcceptRequest = async (req: FriendRequest) => {
+    try {
+      await api.post('/friends/accept', { friendId: req.userId });
+      await fetchFriendsData();
+      
+      const newActivity: Activity = {
+        id: `act_${Date.now()}`,
+        displayName: req.displayName,
+        type: 'GOAL_COMPLETED',
+        content: `is now connected with you on Momentum. Start planning together!`,
+        createdAt: 'Just now',
+        comments: [],
+        reactions: ['🎉']
+      };
+      setActivities(prev => [newActivity, ...prev]);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to accept friend request.');
+    }
+  };
+
+  const handleRejectRequest = async (reqId: string) => {
+    try {
+      const targetUserId = reqId.replace('req_', '');
+      await api.post('/friends/reject', { friendId: targetUserId });
+      await fetchFriendsData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to reject request.');
+    }
   };
 
   const handleCopyFriendCode = () => {
