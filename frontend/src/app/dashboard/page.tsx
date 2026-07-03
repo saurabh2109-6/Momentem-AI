@@ -26,7 +26,11 @@ import {
   Unlock,
   Key,
   Edit2,
-  Trash2
+  Trash2,
+  UserPlus,
+  Check,
+  X,
+  Copy
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -57,6 +61,15 @@ interface Friend {
   displayName: string;
   avatarUrl: string | null;
   statusText: string | null;
+}
+
+interface FriendRequest {
+  id: string;
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  code: string;
+  statusText?: string;
 }
 
 interface Activity {
@@ -158,6 +171,48 @@ export default function DashboardPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [securityMessage, setSecurityMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
+  // States for friends
+  const [friendCode, setFriendCode] = useState('MOMENTUM-XJ8A2K');
+  const [searchCode, setSearchCode] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Friend[]>([]);
+  const [friendsList, setFriendsList] = useState<Friend[]>([
+    { userId: 'sarah', username: 'sarah_j', displayName: 'Sarah Jenkins', avatarUrl: null, statusText: 'Focused on UI design' },
+    { userId: 'alex', username: 'alex_k', displayName: 'Alex K.', avatarUrl: null, statusText: 'Coding backend templates' }
+  ]);
+  const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([
+    { id: 'req_1', userId: 'rohit_sharma', displayName: 'Rohit Sharma', avatarUrl: null, code: 'MOMENTUM-RHT77', statusText: 'Planning for next hackathon!' }
+  ]);
+  const [friendRequestSuccess, setFriendRequestSuccess] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  // States for social activity feed
+  const [activities, setActivities] = useState<Activity[]>([
+    { id: 'act1', displayName: 'Sarah Jenkins', type: 'GOAL_COMPLETED', content: 'completed "Finalize High-Fidelity Mockups"', createdAt: '10m ago', comments: [], reactions: ['🔥'] },
+    { id: 'act2', displayName: 'Alex K.', type: 'HABIT_STREAK', content: 'reached a 10-day streak on "Morning Meditation"', createdAt: '1h ago', comments: [{ id: '1', user: 'You', text: 'Amazing job!' }], reactions: ['👍', '🎉'] }
+  ]);
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+
+  // States for chat
+  const [activeChat, setActiveChat] = useState<string | null>('sarah');
+  const [messageText, setMessageText] = useState('');
+  const [chatMessages, setChatMessages] = useState<Record<string, Array<{ sender: string; text: string; encrypted?: boolean }>>>({
+    sarah: [
+      { sender: 'sarah', text: 'Hey, did you check the optimization metrics?' },
+      { sender: 'me', text: 'Yes, looking great. E2EE keys are exchanging now.' }
+    ],
+    alex: [
+      { sender: 'alex', text: 'Let me know when the backend updates compile.' }
+    ]
+  });
+
+  // States for AI
+  const [aiChatText, setAiChatText] = useState('');
+  const [aiMessages, setAiMessages] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
+    { sender: 'ai', text: 'Hello! I am Momentum AI. I have analyzed your planner. Type "optimize" to auto-arrange your tasks, or ask me tips to rebuild your streak.' }
+  ]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
   const [isMounted, setIsMounted] = useState(false);
 
   // Load from localStorage on client-mount to prevent Next.js hydration mismatch
@@ -190,6 +245,27 @@ export default function DashboardPage() {
     
     const storedPic = localStorage.getItem('momentum_profile_pic');
     if (storedPic) setProfilePic(storedPic);
+
+    const storedFriends = localStorage.getItem('momentum_friends');
+    if (storedFriends) {
+      try {
+        setFriendsList(JSON.parse(storedFriends));
+      } catch (e) {}
+    }
+
+    const storedActivities = localStorage.getItem('momentum_activities');
+    if (storedActivities) {
+      try {
+        setActivities(JSON.parse(storedActivities));
+      } catch (e) {}
+    }
+
+    const storedIncoming = localStorage.getItem('momentum_incoming_requests');
+    if (storedIncoming) {
+      try {
+        setIncomingRequests(JSON.parse(storedIncoming));
+      } catch (e) {}
+    }
   }, []);
 
   // Save goals and habits to localStorage when state changes
@@ -217,6 +293,24 @@ export default function DashboardPage() {
       }
     }
   }, [profileName, profileDisplayName, profilePic, isMounted]);
+
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('momentum_friends', JSON.stringify(friendsList));
+    }
+  }, [friendsList, isMounted]);
+
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('momentum_activities', JSON.stringify(activities));
+    }
+  }, [activities, isMounted]);
+
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('momentum_incoming_requests', JSON.stringify(incomingRequests));
+    }
+  }, [incomingRequests, isMounted]);
 
   const calculateAnalytics = () => {
     const nowStr = new Date().toISOString();
@@ -297,42 +391,6 @@ export default function DashboardPage() {
       advice
     };
   };
-
-  // States for friends
-  const [friendCode, setFriendCode] = useState('MOMENTUM-XJ8A2K');
-  const [searchCode, setSearchCode] = useState('');
-  const [friendsList, setFriendsList] = useState<Friend[]>([
-    { userId: 'sarah', username: 'sarah_j', displayName: 'Sarah Jenkins', avatarUrl: null, statusText: 'Focused on UI design' },
-    { userId: 'alex', username: 'alex_k', displayName: 'Alex K.', avatarUrl: null, statusText: 'Coding backend templates' }
-  ]);
-  const [friendRequestSuccess, setFriendRequestSuccess] = useState(false);
-
-  // States for social activity feed
-  const [activities, setActivities] = useState<Activity[]>([
-    { id: 'act1', displayName: 'Sarah Jenkins', type: 'GOAL_COMPLETED', content: 'completed "Finalize High-Fidelity Mockups"', createdAt: '10m ago', comments: [], reactions: ['🔥'] },
-    { id: 'act2', displayName: 'Alex K.', type: 'HABIT_STREAK', content: 'reached a 10-day streak on "Morning Meditation"', createdAt: '1h ago', comments: [{ id: '1', user: 'You', text: 'Amazing job!' }], reactions: ['👍', '🎉'] }
-  ]);
-  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
-
-  // States for chat
-  const [activeChat, setActiveChat] = useState<string | null>('sarah');
-  const [messageText, setMessageText] = useState('');
-  const [chatMessages, setChatMessages] = useState<Record<string, Array<{ sender: string; text: string; encrypted?: boolean }>>>({
-    sarah: [
-      { sender: 'sarah', text: 'Hey, did you check the optimization metrics?' },
-      { sender: 'me', text: 'Yes, looking great. E2EE keys are exchanging now.' }
-    ],
-    alex: [
-      { sender: 'alex', text: 'Let me know when the backend updates compile.' }
-    ]
-  });
-
-  // States for AI
-  const [aiChatText, setAiChatText] = useState('');
-  const [aiMessages, setAiMessages] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
-    { sender: 'ai', text: 'Hello! I am Momentum AI. I have analyzed your planner. Type "optimize" to auto-arrange your tasks, or ask me tips to rebuild your streak.' }
-  ]);
-  const [isOptimizing, setIsOptimizing] = useState(false);
 
   // Core handler functions
   const handleToggleGoal = (goalId: string) => {
@@ -421,10 +479,103 @@ export default function DashboardPage() {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      setFriendRequestSuccess(true);
+      const code = searchCode.toUpperCase().trim();
+      if (code === 'MOMENTUM-RHT77') {
+        const req = incomingRequests.find(r => r.userId === 'rohit_sharma');
+        if (req) {
+          handleAcceptRequest(req);
+        } else {
+          setFriendRequestSuccess(true);
+        }
+      } else if (code.includes('KABIR') || code === 'MOMENTUM-KBR88') {
+        const kabirFriend: Friend = {
+          userId: 'kabir_ai',
+          username: 'kabir_ai',
+          displayName: 'Kabir AI',
+          avatarUrl: null,
+          statusText: 'Fine-tuning LLM pipelines'
+        };
+        setFriendsList(prev => {
+          if (prev.some(f => f.userId === kabirFriend.userId)) return prev;
+          return [...prev, kabirFriend];
+        });
+        setFriendRequestSuccess(true);
+      } else {
+        setFriendRequestSuccess(true);
+      }
       setSearchCode('');
       setTimeout(() => setFriendRequestSuccess(false), 3000);
     }, 1000);
+  };
+
+  const handleSearchUsers = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const query = searchQuery.toLowerCase().trim();
+    const discoverableUsers: Friend[] = [
+      { userId: 'rohit_sharma', username: 'rohit_sharma', displayName: 'Rohit Sharma', avatarUrl: null, statusText: 'Planning for next hackathon!' },
+      { userId: 'neha_dev', username: 'neha_dev', displayName: 'Neha Dev', avatarUrl: null, statusText: 'Debugging CSS layouts' },
+      { userId: 'kabir_ai', username: 'kabir_ai', displayName: 'Kabir AI', avatarUrl: null, statusText: 'Fine-tuning LLM pipelines' },
+      { userId: 'himaa_w', username: 'himaa_w', displayName: 'Himaa W.', avatarUrl: null, statusText: 'Morning workout complete!' }
+    ];
+    const matches = discoverableUsers.filter(u => 
+      u.username.toLowerCase().includes(query) || 
+      u.displayName.toLowerCase().includes(query)
+    );
+    setSearchResults(matches);
+  };
+
+  const handleSendRequestToUser = (user: Friend) => {
+    setFriendRequestSuccess(true);
+    setTimeout(() => setFriendRequestSuccess(false), 3000);
+  };
+
+  const handleAcceptRequest = (req: FriendRequest) => {
+    const newFriend: Friend = {
+      userId: req.userId,
+      username: req.userId,
+      displayName: req.displayName,
+      avatarUrl: req.avatarUrl,
+      statusText: req.statusText || 'Connected on Momentum'
+    };
+    
+    setFriendsList(prev => {
+      if (prev.some(f => f.userId === newFriend.userId)) return prev;
+      return [...prev, newFriend];
+    });
+
+    setChatMessages(prev => ({
+      ...prev,
+      [newFriend.userId]: [
+        { sender: newFriend.userId, text: `Hey there! Glad to connect on Momentum.` }
+      ]
+    }));
+
+    setIncomingRequests(prev => prev.filter(r => r.id !== req.id));
+
+    const newActivity: Activity = {
+      id: `act_${Date.now()}`,
+      displayName: req.displayName,
+      type: 'GOAL_COMPLETED',
+      content: `is now connected with you on Momentum. Start planning together!`,
+      createdAt: 'Just now',
+      comments: [],
+      reactions: ['🎉']
+    };
+    setActivities(prev => [newActivity, ...prev]);
+  };
+
+  const handleRejectRequest = (reqId: string) => {
+    setIncomingRequests(prev => prev.filter(r => r.id !== reqId));
+  };
+
+  const handleCopyFriendCode = () => {
+    navigator.clipboard.writeText(friendCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const handleSocialReact = (actId: string, emoji: string) => {
@@ -988,91 +1139,202 @@ export default function DashboardPage() {
                 exit={{ opacity: 0, y: -15 }}
                 className="grid grid-cols-1 lg:grid-cols-3 gap-8"
               >
-                {/* Social feed timeline */}
-                <div className="lg:col-span-2 space-y-6">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Social Activity Feed</h3>
-                  <div className="space-y-6">
-                    {activities.map((act) => (
-                      <div key={act.id} className="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-500 to-rose-500 flex items-center justify-center font-bold text-sm text-white">
-                              {act.displayName.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-white">{act.displayName}</p>
-                              <span className="text-[10px] text-muted-foreground">{act.createdAt}</span>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            {['🔥', '🎉', '👍'].map((emoji) => (
-                              <button 
-                                key={emoji}
-                                onClick={() => handleSocialReact(act.id, emoji)}
-                                className={`px-2 py-1 rounded bg-white/5 border text-xs hover:bg-white/10 transition-colors ${
-                                  act.reactions.includes(emoji) ? 'border-primary' : 'border-white/5'
-                                }`}
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-white font-medium bg-black/20 p-3 rounded-xl border border-white/5">
-                          {act.content}
-                        </p>
-
-                        {/* Comments list */}
-                        {act.comments.length > 0 && (
-                          <div className="space-y-2 border-t border-white/5 pt-3">
-                            {act.comments.map((c) => (
-                              <div key={c.id} className="text-xs flex gap-2">
-                                <span className="font-bold text-primary">{c.user}:</span>
-                                <span className="text-muted-foreground">{c.text}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Add comment box */}
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={commentInputs[act.id] || ''}
-                            onChange={(e) => setCommentInputs(prev => ({ ...prev, [act.id]: e.target.value }))}
-                            placeholder="Type an encouraging note..."
-                            className="flex-1 h-8 px-3 rounded-lg bg-white/5 border border-white/10 text-xs focus:outline-none focus:border-primary text-white"
-                          />
-                          <button 
-                            onClick={() => handleAddSocialComment(act.id)}
-                            className="px-3 h-8 bg-white text-black font-semibold text-xs rounded-lg flex items-center gap-1 hover:bg-white/90 transition-colors"
-                          >
-                            Send
-                          </button>
-                        </div>
+                {/* Left Side: Requests, Discover, Timeline */}
+                <div className="lg:col-span-2 space-y-8">
+                  {/* Incoming Requests */}
+                  {incomingRequests.length > 0 && (
+                    <div className="glass-panel p-6 rounded-3xl border border-primary/25 space-y-4 shadow-lg shadow-primary/5">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-white">Incoming Friend Requests ({incomingRequests.length})</h3>
                       </div>
-                    ))}
+                      <div className="space-y-3">
+                        {incomingRequests.map((req) => (
+                          <div key={req.id} className="flex items-center justify-between p-3.5 rounded-2xl bg-white/5 border border-white/5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-sm text-white">
+                                {req.displayName.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-white">{req.displayName}</p>
+                                <p className="text-[10px] text-muted-foreground italic">"{req.statusText || 'Hey! Let\'s follow each other.'}"</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => handleAcceptRequest(req)}
+                                className="p-2 rounded-xl bg-primary text-white hover:opacity-95 transition-opacity flex items-center justify-center"
+                                title="Accept Request"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleRejectRequest(req.id)}
+                                className="p-2 rounded-xl bg-white/5 text-muted-foreground hover:text-white transition-colors flex items-center justify-center"
+                                title="Ignore Request"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Discover & Search Users */}
+                  <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white">Discover & Search Users</h3>
+                    <form onSubmit={handleSearchUsers} className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input 
+                          type="text" 
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search friends by username or display name..."
+                          className="w-full h-10 pl-9 pr-4 rounded-xl bg-white/5 border border-white/10 text-xs focus:outline-none focus:border-primary text-white"
+                        />
+                      </div>
+                      <button 
+                        type="submit"
+                        className="px-4 h-10 bg-white text-black font-bold text-xs rounded-xl flex items-center justify-center hover:bg-white/90 transition-colors"
+                      >
+                        Search
+                      </button>
+                    </form>
+
+                    {/* Search Results */}
+                    {searchResults.length > 0 && (
+                      <div className="space-y-2.5 pt-2 border-t border-white/5">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Search Results</p>
+                        {searchResults.map((user) => {
+                          const isAlreadyFriend = friendsList.some(f => f.userId === user.userId);
+                          return (
+                            <div key={user.userId} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 flex items-center justify-center font-bold text-xs text-white">
+                                  {user.displayName.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-white">{user.displayName}</p>
+                                  <p className="text-[9px] text-muted-foreground">@{user.username}</p>
+                                </div>
+                              </div>
+                              {isAlreadyFriend ? (
+                                <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                                  <UserCheck className="w-3.5 h-3.5" /> Friends
+                                </span>
+                              ) : (
+                                <button 
+                                  onClick={() => handleSendRequestToUser(user)}
+                                  className="px-3 py-1.5 bg-primary text-white font-bold text-[10px] rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                                >
+                                  <UserPlus className="w-3.5 h-3.5" /> Connect
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Social Feed Timeline */}
+                  <div className="space-y-6">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Social Activity Feed</h3>
+                    <div className="space-y-6">
+                      {activities.map((act) => (
+                        <div key={act.id} className="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-500 to-rose-500 flex items-center justify-center font-bold text-sm text-white">
+                                {act.displayName.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-white">{act.displayName}</p>
+                                <span className="text-[10px] text-muted-foreground">{act.createdAt}</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {['🔥', '🎉', '👍'].map((emoji) => (
+                                <button 
+                                  key={emoji}
+                                  onClick={() => handleSocialReact(act.id, emoji)}
+                                  className={`px-2 py-1 rounded bg-white/5 border text-xs hover:bg-white/10 transition-colors ${
+                                    act.reactions.includes(emoji) ? 'border-primary' : 'border-white/5'
+                                  }`}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <p className="text-sm text-white font-medium bg-black/20 p-3 rounded-xl border border-white/5">
+                            {act.content}
+                          </p>
+
+                          {/* Comments list */}
+                          {act.comments.length > 0 && (
+                            <div className="space-y-2 border-t border-white/5 pt-3">
+                              {act.comments.map((c) => (
+                                <div key={c.id} className="text-xs flex gap-2">
+                                  <span className="font-bold text-primary">{c.user}:</span>
+                                  <span className="text-muted-foreground">{c.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Add comment box */}
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              value={commentInputs[act.id] || ''}
+                              onChange={(e) => setCommentInputs(prev => ({ ...prev, [act.id]: e.target.value }))}
+                              placeholder="Type an encouraging note..."
+                              className="flex-1 h-8 px-3 rounded-lg bg-white/5 border border-white/10 text-xs focus:outline-none focus:border-primary text-white"
+                            />
+                            <button 
+                              onClick={() => handleAddSocialComment(act.id)}
+                              className="px-3 h-8 bg-white text-black font-semibold text-xs rounded-lg flex items-center gap-1 hover:bg-white/90 transition-colors"
+                            >
+                              Send
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Friend Code list */}
+                {/* Right Side: Share, Add, Friends List */}
                 <div className="space-y-6">
                   {/* Share code */}
                   <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-3">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">Your Friend Code</h3>
-                    <div className="p-3 rounded-xl bg-black/35 border border-white/5 font-mono text-sm font-bold text-center tracking-widest text-primary">
-                      {friendCode}
+                    <div 
+                      onClick={handleCopyFriendCode}
+                      className="p-3 rounded-xl bg-black/35 border border-white/5 font-mono text-sm font-bold text-center tracking-widest text-primary cursor-pointer hover:border-primary/40 transition-colors flex items-center justify-center gap-2 group"
+                      title="Click to copy code"
+                    >
+                      <span>{friendCode}</span>
+                      {copiedCode ? (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground leading-normal text-center">Share this code with friends so they can follow your planning progress and check streaks.</p>
                   </div>
 
-                  {/* Add friend */}
+                  {/* Add friend by code */}
                   <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">Add Friend Code</h3>
                     {friendRequestSuccess && (
                       <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-semibold text-center">
-                        Friend Request Sent Successfully!
+                        Request Processed / Friend Added Successfully!
                       </div>
                     )}
                     <form onSubmit={handleSendFriendRequest} className="flex gap-2">
@@ -1092,32 +1354,50 @@ export default function DashboardPage() {
                         {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Add'}
                       </button>
                     </form>
+                    <div className="text-[9px] text-muted-foreground leading-normal mt-1 space-y-0.5">
+                      <p>💡 Tip: Enter <span className="font-mono text-white">MOMENTUM-RHT77</span> to accept Rohit's request.</p>
+                      <p>💡 Tip: Enter <span className="font-mono text-white">MOMENTUM-KBR88</span> to add Kabir AI directly.</p>
+                    </div>
                   </div>
 
-                  {/* Friend list */}
+                  {/* Friends List */}
                   <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">Friends ({friendsList.length})</h3>
                     <div className="space-y-3">
                       {friendsList.map((f) => (
-                        <div key={f.userId} className="flex items-center gap-3 justify-between">
+                        <div key={f.userId} className="flex items-center gap-3 justify-between p-2 rounded-xl hover:bg-white/5 transition-colors">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 flex items-center justify-center font-bold text-xs text-white">
-                              {f.displayName.charAt(0)}
+                            <div className="relative">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 flex items-center justify-center font-bold text-xs text-white">
+                                {f.displayName.charAt(0)}
+                              </div>
+                              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black/80"></span>
                             </div>
                             <div>
                               <p className="text-xs font-bold text-white">{f.displayName}</p>
                               <p className="text-[9px] text-muted-foreground italic mt-0.5">"{f.statusText || 'Active planner'}"</p>
                             </div>
                           </div>
-                          <button 
-                            onClick={() => {
-                              setActiveChat(f.userId);
-                              setActiveView('chat');
-                            }} 
-                            className="px-2.5 py-1 rounded bg-white/5 border border-white/5 text-[9px] font-bold text-muted-foreground hover:text-white hover:bg-white/10 transition-colors"
-                          >
-                            Chat
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button 
+                              onClick={() => {
+                                setActiveChat(f.userId);
+                                setActiveView('chat');
+                              }} 
+                              className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold text-muted-foreground hover:text-white hover:bg-white/10 transition-colors"
+                            >
+                              Chat
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setFriendsList(prev => prev.filter(item => item.userId !== f.userId));
+                              }} 
+                              className="p-1 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                              title="Remove Friend"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
