@@ -73,13 +73,58 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<'overview' | 'calendar' | 'analytics' | 'friends' | 'chat' | 'ai'>('overview');
   const [isE2EESecured, setIsE2EESecured] = useState(false);
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0];
+  });
 
   // States for goals
-  const [goals, setGoals] = useState<Goal[]>([
-    { id: '1', title: 'Design System Refinement', description: 'Align shades and variables', status: 'TODO', priority: 'HIGH', category: 'Work', startAt: '2026-07-02T09:00:00Z', endAt: '2026-07-02T10:30:00Z', estimatedTime: 90 },
-    { id: '2', title: 'Cardio & Mindfulness Session', description: 'Gym run and meditation', status: 'COMPLETED', priority: 'MEDIUM', category: 'Health', startAt: '2026-07-02T11:00:00Z', endAt: '2026-07-02T12:00:00Z', estimatedTime: 60 },
-    { id: '3', title: 'Review Weekly Roadmap', description: 'Briefing with designers', status: 'TODO', priority: 'LOW', category: 'Work', startAt: '2026-07-02T14:00:00Z', endAt: '2026-07-02T15:00:00Z', estimatedTime: 60 }
-  ]);
+  const [goals, setGoals] = useState<Goal[]>(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return [
+      { id: '1', title: 'Design System Refinement', description: 'Align shades and variables', status: 'TODO', priority: 'HIGH', category: 'Work', startAt: `${todayStr}T09:00:00Z`, endAt: `${todayStr}T10:30:00Z`, estimatedTime: 90 },
+      { id: '2', title: 'Cardio & Mindfulness Session', description: 'Gym run and meditation', status: 'COMPLETED', priority: 'MEDIUM', category: 'Health', startAt: `${todayStr}T11:00:00Z`, endAt: `${todayStr}T12:00:00Z`, estimatedTime: 60 },
+      { id: '3', title: 'Review Weekly Roadmap', description: 'Briefing with designers', status: 'TODO', priority: 'LOW', category: 'Work', startAt: `${todayStr}T14:00:00Z`, endAt: `${todayStr}T15:00:00Z`, estimatedTime: 60 }
+    ];
+  });
+
+  const getDateStrip = () => {
+    const dates = [];
+    const today = new Date();
+    
+    // start from yesterday
+    const start = new Date();
+    start.setDate(today.getDate() - 1);
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      
+      let label = d.toLocaleDateString(undefined, { weekday: 'short' });
+      const todayStr = today.toISOString().split('T')[0];
+      
+      const tomorrowDate = new Date();
+      tomorrowDate.setDate(today.getDate() + 1);
+      const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+      
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(today.getDate() - 1);
+      const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+      
+      if (dateStr === todayStr) label = 'Today';
+      else if (dateStr === tomorrowStr) label = 'Tomorrow';
+      else if (dateStr === yesterdayStr) label = 'Yesterday';
+
+      dates.push({
+        dateStr,
+        dayNum: d.getDate(),
+        dayName: label,
+        isToday: dateStr === todayStr
+      });
+    }
+    return dates;
+  };
+
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalPriority, setNewGoalPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [newGoalCategory, setNewGoalCategory] = useState('Work');
@@ -205,6 +250,10 @@ export default function DashboardPage() {
     e.preventDefault();
     if (!newGoalTitle.trim()) return;
 
+    const now = new Date();
+    const startDateTime = new Date(selectedDate);
+    startDateTime.setHours(now.getHours(), now.getMinutes(), 0, 0);
+
     const newGoal: Goal = {
       id: `goal_${Date.now()}`,
       title: newGoalTitle,
@@ -212,8 +261,8 @@ export default function DashboardPage() {
       status: 'TODO',
       priority: newGoalPriority,
       category: newGoalCategory,
-      startAt: new Date().toISOString(),
-      endAt: new Date(Date.now() + newGoalEstimated * 60 * 1000).toISOString(),
+      startAt: startDateTime.toISOString(),
+      endAt: new Date(startDateTime.getTime() + newGoalEstimated * 60 * 1000).toISOString(),
       estimatedTime: newGoalEstimated
     };
 
@@ -480,6 +529,39 @@ export default function DashboardPage() {
 
         {/* View Switchers */}
         <div className="p-8 max-w-5xl mx-auto w-full space-y-8 flex-1">
+          {/* Week Date Strip Selector */}
+          {(activeView === 'overview' || activeView === 'calendar') && (
+            <div className="glass-panel p-4 rounded-3xl border border-white/10 flex flex-col gap-3">
+              <div className="flex justify-between items-center px-1">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Planning Calendar</h3>
+                <span className="text-xs font-bold text-white bg-white/5 border border-white/5 px-3 py-1 rounded-full">
+                  {new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {getDateStrip().map((d) => {
+                  const isSelected = d.dateStr === selectedDate;
+                  return (
+                    <button
+                      key={d.dateStr}
+                      onClick={() => setSelectedDate(d.dateStr)}
+                      className={`flex-1 min-w-[76px] py-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1.5 ${
+                        isSelected 
+                          ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105' 
+                          : 'bg-white/5 border-white/5 text-muted-foreground hover:border-white/10 hover:text-white'
+                      }`}
+                    >
+                      <span className="text-[9px] font-bold uppercase tracking-wider">{d.dayName}</span>
+                      <span className="text-base font-extrabold">{d.dayNum}</span>
+                      {d.isToday && !isSelected && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5"></span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             
             {/* Overview dashboard */}
@@ -586,54 +668,62 @@ export default function DashboardPage() {
                     </button>
                   </div>
                   <div className="space-y-3">
-                    {goals.map((g) => (
-                      <div 
-                        key={g.id} 
-                        onClick={() => handleToggleGoal(g.id)}
-                        className={`glass-panel p-4 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
-                          g.status === 'COMPLETED' ? 'border-white/5 opacity-60' : 'border-white/10 hover:border-white/20'
-                        }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
-                            g.status === 'COMPLETED' ? 'bg-primary border-primary text-white' : 'border-white/25'
-                          }`}>
-                            {g.status === 'COMPLETED' && <CheckCircle2 className="w-4 h-4" />}
-                          </div>
-                          <div>
-                            <p className={`text-sm font-semibold text-white ${g.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{g.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{g.description}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                            g.priority === 'URGENT' ? 'bg-red-500/20 text-red-400' :
-                            g.priority === 'HIGH' ? 'bg-orange-500/20 text-orange-400' :
-                            g.priority === 'MEDIUM' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-muted/30 text-muted-foreground'
-                          }`}>
-                            {g.priority}
-                          </span>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingGoal(g);
-                            }}
-                            className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
-                            title="Edit task"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button 
-                            onClick={(e) => handleDeleteGoal(g.id, e)}
-                            className="p-1 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
-                            title="Delete task"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                    {goals.filter(g => g.startAt.startsWith(selectedDate)).length === 0 ? (
+                      <div className="glass-panel p-6 rounded-2xl border border-white/5 text-center py-10 space-y-2">
+                        <CalendarIcon className="w-8 h-8 text-muted-foreground mx-auto opacity-35" />
+                        <p className="text-sm font-semibold text-white">No tasks scheduled</p>
+                        <p className="text-xs text-muted-foreground">Select another day or add tasks in the Calendar tab!</p>
                       </div>
-                    ))}
+                    ) : (
+                      goals.filter(g => g.startAt.startsWith(selectedDate)).map((g) => (
+                        <div 
+                          key={g.id} 
+                          onClick={() => handleToggleGoal(g.id)}
+                          className={`glass-panel p-4 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                            g.status === 'COMPLETED' ? 'border-white/5 opacity-60' : 'border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
+                              g.status === 'COMPLETED' ? 'bg-primary border-primary text-white' : 'border-white/25'
+                            }`}>
+                              {g.status === 'COMPLETED' && <CheckCircle2 className="w-4 h-4" />}
+                            </div>
+                            <div>
+                              <p className={`text-sm font-semibold text-white ${g.status === 'COMPLETED' ? 'line-through text-muted-foreground' : ''}`}>{g.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{g.description}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                              g.priority === 'URGENT' ? 'bg-red-500/20 text-red-400' :
+                              g.priority === 'HIGH' ? 'bg-orange-500/20 text-orange-400' :
+                              g.priority === 'MEDIUM' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-muted/30 text-muted-foreground'
+                            }`}>
+                              {g.priority}
+                            </span>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingGoal(g);
+                              }}
+                              className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+                              title="Edit task"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => handleDeleteGoal(g.id, e)}
+                              className="p-1 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                              title="Delete task"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -661,35 +751,43 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="space-y-4">
-                      {goals.map((g) => (
-                        <div key={g.id} className="p-4 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between hover:border-white/10 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-1.5 h-8 rounded bg-primary"></div>
-                            <div>
-                              <p className="text-sm font-semibold text-white">{g.title}</p>
-                              <span className="text-xs text-muted-foreground block mt-0.5">{g.category} • {g.estimatedTime || 30} mins</span>
+                      {goals.filter(g => g.startAt.startsWith(selectedDate)).length === 0 ? (
+                        <div className="p-6 text-center py-10 space-y-2 border border-dashed border-white/10 rounded-xl">
+                          <CalendarIcon className="w-8 h-8 text-muted-foreground mx-auto opacity-35" />
+                          <p className="text-sm font-semibold text-white">No tasks scheduled</p>
+                          <p className="text-xs text-muted-foreground">Use the form on the right to schedule a task for this day.</p>
+                        </div>
+                      ) : (
+                        goals.filter(g => g.startAt.startsWith(selectedDate)).map((g) => (
+                          <div key={g.id} className="p-4 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between hover:border-white/10 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-1.5 h-8 rounded bg-primary"></div>
+                              <div>
+                                <p className="text-sm font-semibold text-white">{g.title}</p>
+                                <span className="text-xs text-muted-foreground block mt-0.5">{g.category} • {g.estimatedTime || 30} mins</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => setEditingGoal(g)}
+                                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+                                title="Edit task"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  setGoals(prev => prev.filter(item => item.id !== g.id));
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                                title="Delete task"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => setEditingGoal(g)}
-                              className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
-                              title="Edit task"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button 
-                              onClick={(e) => {
-                                setGoals(prev => prev.filter(item => item.id !== g.id));
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
-                              title="Delete task"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
