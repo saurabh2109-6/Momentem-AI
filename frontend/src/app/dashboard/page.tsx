@@ -110,6 +110,7 @@ export default function DashboardPage() {
   });
 
   const getDateStrip = () => {
+    if (!isMounted) return [];
     const dates = [];
     const today = new Date();
     
@@ -122,7 +123,7 @@ export default function DashboardPage() {
       d.setDate(start.getDate() + i);
       const dateStr = d.toISOString().split('T')[0];
       
-      let label = d.toLocaleDateString(undefined, { weekday: 'short' });
+      let label = d.toLocaleDateString('en-US', { weekday: 'short' });
       const todayStr = today.toISOString().split('T')[0];
       
       const tomorrowDate = new Date();
@@ -431,7 +432,7 @@ export default function DashboardPage() {
 
       heatmap.push({
         dateStr,
-        displayDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        displayDate: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         completions: dayCompletions
       });
     }
@@ -910,7 +911,7 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Planning Calendar</h3>
                 <span className="text-xs font-bold text-white bg-white/5 border border-white/5 px-3 py-1 rounded-full">
-                  {new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                  {isMounted ? new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                 </span>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -1122,7 +1123,7 @@ export default function DashboardPage() {
                         <span className="px-3 py-1 rounded-full bg-white/5 text-muted-foreground text-xs font-semibold hover:text-white transition-colors cursor-pointer">Week</span>
                         <span className="px-3 py-1 rounded-full bg-white/5 text-muted-foreground text-xs font-semibold hover:text-white transition-colors cursor-pointer">Month</span>
                       </div>
-                      <span className="text-sm font-bold text-white">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                      <span className="text-sm font-bold text-white">{isMounted ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : ''}</span>
                     </div>
 
                     <div className="space-y-4">
