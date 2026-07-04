@@ -14,7 +14,7 @@ export declare class HabitsController {
         description: string | null;
         frequency: string;
         daysOfWeek: number[];
-        logs: import(".prisma/client/runtime/library").JsonValue;
+        logs: import("@prisma/client/runtime/library").JsonValue;
     } | {
         id: `${string}-${string}-${string}-${string}-${string}`;
         userId: string;

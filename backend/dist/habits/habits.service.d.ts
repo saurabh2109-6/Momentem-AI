@@ -26,7 +26,7 @@ export declare class HabitsService {
         description: string | null;
         frequency: string;
         daysOfWeek: number[];
-        logs: import(".prisma/client/runtime/library").JsonValue;
+        logs: import("@prisma/client/runtime/library").JsonValue;
     }>;
     getHabit(userId: string, habitId: string): Promise<any>;
     updateHabit(userId: string, habitId: string, dto: UpdateHabitDto): Promise<any>;
