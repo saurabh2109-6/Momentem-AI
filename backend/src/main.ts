@@ -20,14 +20,13 @@ async function bootstrap() {
 
   // Enable CORS - allow frontend origins
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       const allowedOrigins = [
         'http://localhost:3000',
         'http://localhost:3001',
         process.env.FRONTEND_URL,
       ].filter(Boolean);
 
-      // Allow Vercel preview URLs and any onrender.com or vercel.app domain
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
@@ -36,7 +35,7 @@ async function bootstrap() {
       ) {
         callback(null, true);
       } else {
-        callback(null, true); // allow all for now in production
+        callback(null, true);
       }
     },
     credentials: true,
