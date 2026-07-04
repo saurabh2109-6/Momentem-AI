@@ -18,9 +18,27 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
 
-  // Enable CORS
+  // Enable CORS - allow frontend origins
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        process.env.FRONTEND_URL,
+      ].filter(Boolean);
+
+      // Allow Vercel preview URLs and any onrender.com or vercel.app domain
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /\.vercel\.app$/.test(origin) ||
+        /\.onrender\.com$/.test(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(null, true); // allow all for now in production
+      }
+    },
     credentials: true,
   });
 
