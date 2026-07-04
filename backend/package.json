@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "build:render": "nest build --builder swc",
+    "db:generate": "prisma generate",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
