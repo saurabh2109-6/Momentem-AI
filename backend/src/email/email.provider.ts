@@ -20,11 +20,11 @@ export const mailerProvider = {
         user,
         pass,
       },
-      localAddress: '0.0.0.0', // Force Nodemailer to bind to IPv4 local interface
+      family: 4, // Force Nodemailer to use IPv4 DNS resolution and socket connection
       connectionTimeout: 10000, // 10 seconds timeout
       greetingTimeout: 10000,
       socketTimeout: 15000,
-    });
+    } as any);
 
     return transporter;
   },
