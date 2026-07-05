@@ -20,6 +20,7 @@ export const mailerProvider = {
         user,
         pass,
       },
+      localAddress: '0.0.0.0', // Force Nodemailer to bind to IPv4 local interface
       connectionTimeout: 10000, // 10 seconds timeout
       greetingTimeout: 10000,
       socketTimeout: 15000,
