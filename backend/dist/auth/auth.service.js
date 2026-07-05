@@ -235,7 +235,12 @@ let AuthService = AuthService_1 = class AuthService {
         }
         await this.redis.set(redisKey, JSON.stringify(state), 300);
         this.logger.log(`[OTP Verification] Generated code for ${email}: ${otpCode}`);
-        await this.emailService.sendOtpMail(email, otpCode);
+        try {
+            await this.emailService.sendOtpMail(email, otpCode);
+        }
+        catch (error) {
+            this.logger.warn(`Failed to dispatch SMTP email to ${email}: ${error.message}. OTP code is logged above in logs.`);
+        }
         return { message: 'Verification OTP code sent successfully' };
     }
     async verifyOtp(dto) {

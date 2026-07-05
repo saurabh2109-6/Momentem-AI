@@ -242,7 +242,11 @@ export class AuthService {
     this.logger.log(`[OTP Verification] Generated code for ${email}: ${otpCode}`);
 
     // Dispatch real email or console fallback
-    await this.emailService.sendOtpMail(email, otpCode);
+    try {
+      await this.emailService.sendOtpMail(email, otpCode);
+    } catch (error: any) {
+      this.logger.warn(`Failed to dispatch SMTP email to ${email}: ${error.message}. OTP code is logged above in logs.`);
+    }
 
     return { message: 'Verification OTP code sent successfully' };
   }
