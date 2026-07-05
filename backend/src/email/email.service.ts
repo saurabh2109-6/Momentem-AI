@@ -58,7 +58,66 @@ export class EmailServiceImpl implements IEmailService {
     const emailUser = this.config.get<string>('EMAIL_USER');
     const emailPass = this.config.get<string>('EMAIL_PASS');
     const resendApiKey = this.config.get<string>('RESEND_API_KEY');
+    
+    // Gmail API OAuth2 credentials
+    const gmailClientId = this.config.get<string>('GMAIL_CLIENT_ID');
+    const gmailClientSecret = this.config.get<string>('GMAIL_CLIENT_SECRET');
+    const gmailRefreshToken = this.config.get<string>('GMAIL_REFRESH_TOKEN');
+    
     const maxAttempts = 2; // initial attempt + 1 retry
+
+    // Check if Gmail API OAuth2 is configured (sends via HTTPS from your Gmail address)
+    if (gmailClientId && gmailClientSecret && gmailRefreshToken) {
+      try {
+        this.logger.log(`Gmail API Delivery Attempt for ${to}`);
+        
+        // 1. Exchange refresh token for access token
+        const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+          client_id: gmailClientId,
+          client_secret: gmailClientSecret,
+          refresh_token: gmailRefreshToken,
+          grant_type: 'refresh_token',
+        });
+        
+        const accessToken = tokenResponse.data.access_token;
+        
+        // 2. Construct MIME message
+        const utf8Subject = `=?utf-8?B?${Buffer.from('Momentum AI Verification Code').toString('base64')}?=`;
+        const emailContent = 
+          `To: ${to}\r\n` +
+          `Subject: ${utf8Subject}\r\n` +
+          `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+          `${htmlContent}`;
+          
+        const base64EncodedEmail = Buffer.from(emailContent)
+          .toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+
+        // 3. Send email via Gmail REST API (runs over port 443 HTTPS)
+        await axios.post(
+          'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+          {
+            raw: base64EncodedEmail,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        this.logger.log(`Email Sent successfully via Gmail API to ${to}`);
+        return; // Success, exit
+      } catch (err: any) {
+        this.logger.error(
+          `Gmail API Failed to send email to ${to}: ${err.response?.data?.error?.message || err.message}`
+        );
+        // Fallback to other providers if Gmail API fails
+      }
+    }
 
     // Check if Resend HTTP API Key is available (bypasses SMTP firewall blocks)
     if (resendApiKey) {

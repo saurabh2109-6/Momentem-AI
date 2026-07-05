@@ -96,7 +96,45 @@ let EmailServiceImpl = EmailServiceImpl_1 = class EmailServiceImpl {
         const emailUser = this.config.get('EMAIL_USER');
         const emailPass = this.config.get('EMAIL_PASS');
         const resendApiKey = this.config.get('RESEND_API_KEY');
+        const gmailClientId = this.config.get('GMAIL_CLIENT_ID');
+        const gmailClientSecret = this.config.get('GMAIL_CLIENT_SECRET');
+        const gmailRefreshToken = this.config.get('GMAIL_REFRESH_TOKEN');
         const maxAttempts = 2;
+        if (gmailClientId && gmailClientSecret && gmailRefreshToken) {
+            try {
+                this.logger.log(`Gmail API Delivery Attempt for ${to}`);
+                const tokenResponse = await axios_1.default.post('https://oauth2.googleapis.com/token', {
+                    client_id: gmailClientId,
+                    client_secret: gmailClientSecret,
+                    refresh_token: gmailRefreshToken,
+                    grant_type: 'refresh_token',
+                });
+                const accessToken = tokenResponse.data.access_token;
+                const utf8Subject = `=?utf-8?B?${Buffer.from('Momentum AI Verification Code').toString('base64')}?=`;
+                const emailContent = `To: ${to}\r\n` +
+                    `Subject: ${utf8Subject}\r\n` +
+                    `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+                    `${htmlContent}`;
+                const base64EncodedEmail = Buffer.from(emailContent)
+                    .toString('base64')
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
+                await axios_1.default.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+                    raw: base64EncodedEmail,
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                this.logger.log(`Email Sent successfully via Gmail API to ${to}`);
+                return;
+            }
+            catch (err) {
+                this.logger.error(`Gmail API Failed to send email to ${to}: ${err.response?.data?.error?.message || err.message}`);
+            }
+        }
         if (resendApiKey) {
             try {
                 this.logger.log(`Resend HTTP API Delivery Attempt for ${to}`);
