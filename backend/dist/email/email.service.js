@@ -44,6 +44,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 var EmailServiceImpl_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailServiceImpl = void 0;
@@ -52,6 +55,7 @@ const config_1 = require("@nestjs/config");
 const nodemailer = __importStar(require("nodemailer"));
 const email_templates_1 = require("./email.templates");
 const email_provider_1 = require("./email.provider");
+const axios_1 = __importDefault(require("axios"));
 let EmailServiceImpl = EmailServiceImpl_1 = class EmailServiceImpl {
     transporter;
     templates;
@@ -91,7 +95,29 @@ let EmailServiceImpl = EmailServiceImpl_1 = class EmailServiceImpl {
         const isProduction = this.config.get('NODE_ENV') === 'production';
         const emailUser = this.config.get('EMAIL_USER');
         const emailPass = this.config.get('EMAIL_PASS');
+        const resendApiKey = this.config.get('RESEND_API_KEY');
         const maxAttempts = 2;
+        if (resendApiKey) {
+            try {
+                this.logger.log(`Resend HTTP API Delivery Attempt for ${to}`);
+                const response = await axios_1.default.post('https://api.resend.com/emails', {
+                    from: 'onboarding@resend.dev',
+                    to,
+                    subject: 'Momentum AI Verification Code',
+                    html: htmlContent,
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${resendApiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                this.logger.log(`Email Sent successfully via Resend API to ${to}: ${response.data.id}`);
+                return;
+            }
+            catch (err) {
+                this.logger.error(`Resend API Failed to send email to ${to}: ${err.response?.data?.message || err.message}`);
+            }
+        }
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 this.logger.log(`SMTP Delivery Attempt ${attempt}/${maxAttempts} for ${to}`);

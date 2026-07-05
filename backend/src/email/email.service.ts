@@ -4,6 +4,7 @@ import * as nodemailer from 'nodemailer';
 import { EmailService as IEmailService } from './interfaces/email-service.interface';
 import { EmailTemplateService } from './email.templates';
 import { MAILER_TRANSPORTER } from './email.provider';
+import axios from 'axios';
 
 @Injectable()
 export class EmailServiceImpl implements IEmailService {
@@ -56,7 +57,37 @@ export class EmailServiceImpl implements IEmailService {
     const isProduction = this.config.get<string>('NODE_ENV') === 'production';
     const emailUser = this.config.get<string>('EMAIL_USER');
     const emailPass = this.config.get<string>('EMAIL_PASS');
+    const resendApiKey = this.config.get<string>('RESEND_API_KEY');
     const maxAttempts = 2; // initial attempt + 1 retry
+
+    // Check if Resend HTTP API Key is available (bypasses SMTP firewall blocks)
+    if (resendApiKey) {
+      try {
+        this.logger.log(`Resend HTTP API Delivery Attempt for ${to}`);
+        const response = await axios.post(
+          'https://api.resend.com/emails',
+          {
+            from: 'onboarding@resend.dev', // Default sender for Resend free tier
+            to,
+            subject: 'Momentum AI Verification Code',
+            html: htmlContent,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        this.logger.log(`Email Sent successfully via Resend API to ${to}: ${response.data.id}`);
+        return; // Success, exit
+      } catch (err: any) {
+        this.logger.error(
+          `Resend API Failed to send email to ${to}: ${err.response?.data?.message || err.message}`
+        );
+        // Fallback to SMTP attempt if Resend fails
+      }
+    }
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
