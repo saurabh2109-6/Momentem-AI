@@ -22,6 +22,10 @@ export class EmailServiceImpl implements IEmailService {
    * Verifies the connection credentials with the Gmail SMTP server.
    */
   private async verifySmtpConnection() {
+    if (this.config.get<string>('BREVO_API_KEY') || process.env.VERCEL) {
+      return;
+    }
+
     const user = this.config.get<string>('EMAIL_USER');
     const pass = this.config.get<string>('EMAIL_PASS');
 

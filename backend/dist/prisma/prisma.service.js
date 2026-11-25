@@ -44,11 +44,14 @@ exports.PrismaService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const fs = __importStar(require("fs"));
+const os = __importStar(require("os"));
 const path = __importStar(require("path"));
 let PrismaService = PrismaService_1 = class PrismaService extends client_1.PrismaClient {
     logger = new common_1.Logger(PrismaService_1.name);
     isFallbackMode = false;
-    dbPath = path.join(process.cwd(), '.db');
+    dbPath = process.env.VERCEL
+        ? path.join(os.tmpdir(), 'momentum-db')
+        : path.join(process.cwd(), '.db');
     usersFile = path.join(this.dbPath, 'prisma_users.json');
     profilesFile = path.join(this.dbPath, 'prisma_profiles.json');
     sessionsFile = path.join(this.dbPath, 'prisma_sessions.json');
@@ -68,9 +71,10 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
             this.isFallbackMode = false;
             try {
                 await this.$executeRawUnsafe('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "firstName" TEXT, ADD COLUMN IF NOT EXISTS "lastName" TEXT, ADD COLUMN IF NOT EXISTS "age" INTEGER;');
+                await this.$executeRawUnsafe('CREATE TABLE IF NOT EXISTS "AppCache" ("key" TEXT PRIMARY KEY, "value" TEXT NOT NULL, "expiresAt" TIMESTAMPTZ);');
             }
             catch (migrationErr) {
-                this.logger.warn(`Schema column sync skipped: ${migrationErr.message}`);
+                this.logger.warn(`Schema sync skipped: ${migrationErr.message}`);
             }
         }
         catch (err) {

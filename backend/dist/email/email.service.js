@@ -68,6 +68,9 @@ let EmailServiceImpl = EmailServiceImpl_1 = class EmailServiceImpl {
         this.verifySmtpConnection();
     }
     async verifySmtpConnection() {
+        if (this.config.get('BREVO_API_KEY') || process.env.VERCEL) {
+            return;
+        }
         const user = this.config.get('EMAIL_USER');
         const pass = this.config.get('EMAIL_PASS');
         if (!user || !pass) {

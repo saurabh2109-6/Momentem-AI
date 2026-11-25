@@ -1,13 +1,16 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
   public isFallbackMode = false;
-  private dbPath = path.join(process.cwd(), '.db');
+  private dbPath = process.env.VERCEL
+    ? path.join(os.tmpdir(), 'momentum-db')
+    : path.join(process.cwd(), '.db');
   
   // File Paths for local fallback tables
   private usersFile = path.join(this.dbPath, 'prisma_users.json');
@@ -32,8 +35,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         await this.$executeRawUnsafe(
           'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "firstName" TEXT, ADD COLUMN IF NOT EXISTS "lastName" TEXT, ADD COLUMN IF NOT EXISTS "age" INTEGER;',
         );
+        await this.$executeRawUnsafe(
+          'CREATE TABLE IF NOT EXISTS "AppCache" ("key" TEXT PRIMARY KEY, "value" TEXT NOT NULL, "expiresAt" TIMESTAMPTZ);',
+        );
       } catch (migrationErr: any) {
-        this.logger.warn(`Schema column sync skipped: ${migrationErr.message}`);
+        this.logger.warn(`Schema sync skipped: ${migrationErr.message}`);
       }
     } catch (err: any) {
       this.logger.warn(`Neon PostgreSQL connection failed: ${err.message}. Enabling local JSON database fallback.`);
