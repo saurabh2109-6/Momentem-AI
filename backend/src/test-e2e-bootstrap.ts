@@ -42,6 +42,9 @@ async function runVerificationTest() {
     // 4. Complete Registration
     console.log('\nStep 4: Registering new user account details...');
     const registerRes = await authService.register({
+      firstName: 'Test',
+      lastName: 'User',
+      age: 25,
       email: testEmail,
       username: testUsername,
       password: testPassword,

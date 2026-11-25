@@ -44,8 +44,13 @@ export class FirebaseAuthGuard implements CanActivate {
         id: user.id,
         email: user.email,
         username: user.username,
+        firstName: user.firstName ?? null,
+        lastName: user.lastName ?? null,
+        age: user.age ?? null,
         role: user.role,
-        displayName: user.profile?.displayName || user.username,
+        displayName:
+          user.profile?.displayName ||
+          ([user.firstName, user.lastName].filter(Boolean).join(' ') || user.username),
         timezone: user.profile?.timezone || 'UTC',
       };
 

@@ -6,6 +6,7 @@ import { EmailService } from '../email/interfaces/email-service.interface';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/otp.dto';
+import { validateEmailWithDomain } from './email-validation.util';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 
@@ -20,24 +21,190 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  /**
-   * Registers a new user in PostgreSQL (or local mock fallback).
-   */
-  async register(dto: RegisterDto) {
+  private formatUserResponse(user: any, profileDisplayName?: string) {
+    const derivedName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      firstName: user.firstName ?? null,
+      lastName: user.lastName ?? null,
+      age: user.age ?? null,
+      displayName: profileDisplayName || user.profile?.displayName || derivedName || user.username,
+      role: user.role,
+    };
+  }
+
+  private async findUserByEmail(rawEmail: string) {
+    const email = rawEmail.trim().toLowerCase();
     if (this.prisma.isFallbackMode) {
       const users = this.prisma.getMockUsers();
-      if (users.some((u) => u.email === dto.email)) {
-        throw new ConflictException('Email is already registered');
+      return users.find((u) => u.email?.toLowerCase() === email) ?? null;
+    }
+
+    return this.prisma.user.findFirst({
+      where: {
+        email: { equals: email, mode: 'insensitive' },
+      },
+      include: { profile: true },
+    });
+  }
+
+  private async isUsernameTaken(username: string): Promise<boolean> {
+    const lower = username.toLowerCase();
+    if (this.prisma.isFallbackMode) {
+      return this.prisma.getMockUsers().some((u) => u.username?.toLowerCase() === lower);
+    }
+
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        username: { equals: username, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    return Boolean(existing);
+  }
+
+  private async generateUniqueUsername(firstName: string, lastName: string): Promise<string> {
+    let base = `${firstName}_${lastName}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 20);
+
+    if (base.length < 3) {
+      base = `user_${base || 'member'}`;
+    }
+
+    if (!(await this.isUsernameTaken(base))) {
+      return base;
+    }
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = `${base}_${crypto.randomBytes(2).toString('hex')}`;
+      if (!(await this.isUsernameTaken(candidate))) {
+        return candidate;
       }
-      if (users.some((u) => u.username === dto.username)) {
+    }
+
+    return `${base}_${Date.now().toString(36)}`;
+  }
+
+  private async verifyOtpCodeInternal(email: string, code: string): Promise<void> {
+    const redisKey = `otp:${email}`;
+    const rawState = await this.redis.get(redisKey);
+
+    if (!rawState) {
+      throw new BadRequestException('OTP code has expired or was not requested');
+    }
+
+    const state = JSON.parse(rawState);
+
+    if (new Date(state.expiresAt).getTime() < Date.now()) {
+      await this.redis.del(redisKey);
+      throw new BadRequestException('OTP code has expired');
+    }
+
+    if (state.attempts >= 5) {
+      await this.redis.del(redisKey);
+      throw new BadRequestException('Too many verification attempts. OTP invalidated.');
+    }
+
+    const isCodeValid = await argon2.verify(state.hashedOtp, code);
+    if (!isCodeValid) {
+      state.attempts += 1;
+      await this.redis.set(redisKey, JSON.stringify(state), 300);
+      throw new BadRequestException('Incorrect OTP code');
+    }
+
+    await this.redis.del(redisKey);
+  }
+
+  /**
+   * Validates email syntax/domain and checks whether it is already registered.
+   */
+  async checkEmailForRegistration(rawEmail: string) {
+    const validation = await validateEmailWithDomain(rawEmail);
+    if (!validation.valid) {
+      return {
+        valid: false,
+        available: false,
+        reason: 'invalid_email',
+        message: validation.message || 'Invalid email address',
+      };
+    }
+
+    const existingUser = await this.findUserByEmail(validation.normalizedEmail);
+    if (existingUser) {
+      return {
+        valid: true,
+        available: false,
+        reason: 'already_registered',
+        message: 'This email is already registered. Please sign in instead.',
+      };
+    }
+
+    return {
+      valid: true,
+      available: true,
+      email: validation.normalizedEmail,
+      message: 'Email is valid and available.',
+    };
+  }
+
+  /**
+   * Registers a new user in PostgreSQL (or local mock fallback) after email validation & OTP verification.
+   */
+  async register(dto: RegisterDto) {
+    const validation = await validateEmailWithDomain(dto.email);
+    if (!validation.valid) {
+      throw new BadRequestException(validation.message || 'Invalid email address');
+    }
+
+    const email = validation.normalizedEmail;
+    const firstName = dto.firstName.trim();
+    const lastName = dto.lastName.trim();
+    const displayName = `${firstName} ${lastName}`.trim();
+
+    const existingEmail = await this.findUserByEmail(email);
+    if (existingEmail) {
+      throw new ConflictException('This email is already registered. Please sign in instead.');
+    }
+
+    // Require verified email OTP before completing registration
+    const verifiedKey = `otp_verified:${email}`;
+    const verifiedMarker = await this.redis.get(verifiedKey);
+    if (verifiedMarker) {
+      await this.redis.del(verifiedKey);
+    } else if (dto.otpCode) {
+      await this.verifyOtpCodeInternal(email, dto.otpCode);
+    } else {
+      throw new BadRequestException(
+        'Please verify your email address with the OTP code before creating your account.',
+      );
+    }
+
+    let username = dto.username?.trim();
+    if (username) {
+      if (await this.isUsernameTaken(username)) {
         throw new ConflictException('Username is already registered');
       }
+    } else {
+      username = await this.generateUniqueUsername(firstName, lastName);
+    }
 
-      const passwordHash = await argon2.hash(dto.password);
+    const passwordHash = await argon2.hash(dto.password);
+    const friendCode = `MOMENTUM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+
+    if (this.prisma.isFallbackMode) {
+      const users = this.prisma.getMockUsers();
       const mockUser = {
         id: crypto.randomUUID(),
-        email: dto.email,
-        username: dto.username,
+        email,
+        username,
+        firstName,
+        lastName,
+        age: dto.age,
         passwordHash,
         role: 'USER',
         isVerified: true,
@@ -48,13 +215,12 @@ export class AuthService {
       users.push(mockUser);
       this.prisma.saveMockUsers(users);
 
-      // Create profile fallback
       const profiles = this.prisma.getMockProfiles();
       profiles.push({
         id: crypto.randomUUID(),
         userId: mockUser.id,
-        displayName: mockUser.username,
-        friendCode: `MOMENTUM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+        displayName,
+        friendCode,
         timezone: 'UTC',
         bio: '',
         avatarUrl: '',
@@ -69,61 +235,40 @@ export class AuthService {
       await this.logEvent(mockUser.id, 'USER_REGISTRATION', `User registered successfully (Mock fallback)`);
 
       return {
-        user: {
-          id: mockUser.id,
-          email: mockUser.email,
-          username: mockUser.username,
-          role: mockUser.role,
-        },
+        user: this.formatUserResponse(mockUser, displayName),
         ...tokens,
       };
     }
 
-    // Check if email already registered
-    const existingEmail = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existingEmail) {
-      throw new ConflictException('Email is already registered');
-    }
-
-    // Check if username already registered
-    const existingUsername = await this.prisma.user.findUnique({ where: { username: dto.username } });
-    if (existingUsername) {
-      throw new ConflictException('Username is already registered');
-    }
-
-    const passwordHash = await argon2.hash(dto.password);
-    const friendCode = `MOMENTUM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-
     // Create user and profile transactionally
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
-        username: dto.username,
+        email,
+        username,
+        firstName,
+        lastName,
+        age: dto.age,
         passwordHash,
         isVerified: true,
         profile: {
           create: {
-            displayName: dto.username,
+            displayName,
             friendCode,
             timezone: 'UTC',
           },
         },
       },
+      include: { profile: true },
     });
 
     const tokens = await this.generateTokens(user.id, user.email);
     await this.storeSession(user.id, tokens.refreshToken);
 
     // Audit log
-    await this.logEvent(user.id, 'USER_REGISTRATION', `User registered successfully with username ${dto.username}`);
+    await this.logEvent(user.id, 'USER_REGISTRATION', `User registered successfully with username ${username}`);
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        role: user.role,
-      },
+      user: this.formatUserResponse(user, displayName),
       ...tokens,
     };
   }
@@ -132,9 +277,17 @@ export class AuthService {
    * Classic password login (Identifier can be email or username).
    */
   async login(dto: LoginDto) {
+    const rawIdentifier = dto.identifier.trim();
+    const normalizedIdentifier = rawIdentifier.toLowerCase();
+
     if (this.prisma.isFallbackMode) {
       const users = this.prisma.getMockUsers();
-      const user = users.find((u) => u.email === dto.identifier || u.username === dto.identifier);
+      const user = users.find(
+        (u) =>
+          !u.deletedAt &&
+          (u.email?.toLowerCase() === normalizedIdentifier ||
+            u.username?.toLowerCase() === normalizedIdentifier),
+      );
 
       if (!user) {
         throw new UnauthorizedException('Invalid credentials');
@@ -145,17 +298,15 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      const profiles = this.prisma.getMockProfiles();
+      const profile = profiles.find((p) => p.userId === user.id);
+
       const tokens = await this.generateTokens(user.id, user.email);
       await this.storeSession(user.id, tokens.refreshToken);
       await this.logEvent(user.id, 'USER_LOGIN', 'User logged in successfully (Mock fallback)');
 
       return {
-        user: {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          role: user.role,
-        },
+        user: this.formatUserResponse(user, profile?.displayName),
         ...tokens,
       };
     }
@@ -163,10 +314,11 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
-          { email: dto.identifier },
-          { username: dto.identifier }
+          { email: { equals: normalizedIdentifier, mode: 'insensitive' } },
+          { username: { equals: rawIdentifier, mode: 'insensitive' } },
         ],
       },
+      include: { profile: true },
     });
 
     if (!user || user.deletedAt) {
@@ -185,12 +337,7 @@ export class AuthService {
     await this.logEvent(user.id, 'USER_LOGIN', 'User logged in successfully via password authentication.');
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        role: user.role,
-      },
+      user: this.formatUserResponse(user),
       ...tokens,
     };
   }
@@ -198,7 +345,21 @@ export class AuthService {
   /**
    * Generates and dispatches an OTP verification code, saving states inside Upstash Redis.
    */
-  async requestOtp(email: string) {
+  async requestOtp(rawEmail: string, purpose: 'login' | 'register' = 'login') {
+    const validation = await validateEmailWithDomain(rawEmail);
+    if (!validation.valid) {
+      throw new BadRequestException(validation.message || 'Invalid email address');
+    }
+
+    const email = validation.normalizedEmail;
+
+    if (purpose === 'register') {
+      const existingUser = await this.findUserByEmail(email);
+      if (existingUser) {
+        throw new ConflictException('This email is already registered. Please sign in instead.');
+      }
+    }
+
     const redisKey = `otp:${email}`;
     const rawState = await this.redis.get(redisKey);
     const now = Date.now();
@@ -248,60 +409,45 @@ export class AuthService {
       this.logger.warn(`Failed to dispatch SMTP email to ${email}: ${error.message}. OTP code is logged above in logs.`);
     }
 
-    return { message: 'Verification OTP code sent successfully' };
+    return { message: 'Verification OTP code sent successfully', email };
   }
 
   /**
    * Verifies the OTP code.
    */
   async verifyOtp(dto: VerifyOtpDto) {
-    const redisKey = `otp:${dto.email}`;
-    const rawState = await this.redis.get(redisKey);
+    const email = dto.email.trim().toLowerCase();
+    await this.verifyOtpCodeInternal(email, dto.code);
 
-    if (!rawState) {
-      throw new BadRequestException('OTP code has expired or is invalid');
-    }
+    const user = await this.findUserByEmail(email);
 
-    const state = JSON.parse(rawState);
-
-    // Check expiration
-    if (new Date(state.expiresAt).getTime() < Date.now()) {
-      await this.redis.del(redisKey);
-      throw new BadRequestException('OTP code has expired');
-    }
-
-    // Check brute force attempts
-    if (state.attempts >= 5) {
-      await this.redis.del(redisKey);
-      throw new BadRequestException('Too many verification attempts. OTP invalidated.');
-    }
-
-    // Check code correctness
-    const isCodeValid = await argon2.verify(state.hashedOtp, dto.code);
-    if (!isCodeValid) {
-      state.attempts += 1;
-      await this.redis.set(redisKey, JSON.stringify(state), 300); // save attempts
-      throw new BadRequestException('Incorrect OTP code');
-    }
-
-    // Success: Consume and delete code from Redis
-    await this.redis.del(redisKey);
-
-    // Find if user exists
-    let user: any;
-    if (this.prisma.isFallbackMode) {
-      const users = this.prisma.getMockUsers();
-      user = users.find((u) => u.email === dto.email);
-    } else {
-      user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (dto.purpose === 'register' && user) {
+      throw new ConflictException('This email is already registered. Please sign in instead.');
     }
 
     if (!user) {
+      // Allow 15 minutes to complete registration with verified email
+      await this.redis.set(
+        `otp_verified:${email}`,
+        JSON.stringify({ verifiedAt: new Date().toISOString() }),
+        900,
+      );
       return {
-        message: 'OTP verified successfully. Proceed to register.',
-        email: dto.email,
+        message: 'Email OTP verified successfully.',
+        email,
         isNewUser: true,
+        verified: true,
       };
+    }
+
+    if (user.deletedAt) {
+      throw new UnauthorizedException('User account has been deactivated');
+    }
+
+    let profileDisplayName: string | undefined;
+    if (this.prisma.isFallbackMode) {
+      const profile = this.prisma.getMockProfiles().find((p) => p.userId === user.id);
+      profileDisplayName = profile?.displayName;
     }
 
     // Log in user (Passwordless OTP Login)
@@ -313,12 +459,7 @@ export class AuthService {
 
     return {
       isNewUser: false,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        role: user.role,
-      },
+      user: this.formatUserResponse(user, profileDisplayName),
       ...tokens,
     };
   }

@@ -26,19 +26,21 @@ let AuthController = class AuthController {
         this.authService = authService;
     }
     setRefreshTokenCookie(res, token) {
+        const isProd = process.env.NODE_ENV === 'production';
         res.cookie('refreshToken', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: isProd,
+            sameSite: isProd ? 'none' : 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: '/api/auth',
         });
     }
     clearRefreshTokenCookie(res) {
+        const isProd = process.env.NODE_ENV === 'production';
         res.clearCookie('refreshToken', {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: isProd,
+            sameSite: isProd ? 'none' : 'lax',
             path: '/api/auth',
         });
     }
@@ -77,8 +79,11 @@ let AuthController = class AuthController {
         this.clearRefreshTokenCookie(res);
         return { message: 'Logged out successfully' };
     }
+    async checkEmail(dto) {
+        return this.authService.checkEmailForRegistration(dto.email);
+    }
     async requestOtp(dto) {
-        return this.authService.requestOtp(dto.email);
+        return this.authService.requestOtp(dto.email, dto.purpose);
     }
     async verifyOtp(dto, res) {
         const result = await this.authService.verifyOtp(dto);
@@ -135,6 +140,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "logout", null);
+__decorate([
+    (0, common_1.Post)('check-email'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [otp_dto_1.CheckEmailDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "checkEmail", null);
 __decorate([
     (0, common_1.Post)('otp/request'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

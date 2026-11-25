@@ -2,7 +2,7 @@ import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { RequestOtpDto, VerifyOtpDto } from './dto/otp.dto';
+import { CheckEmailDto, RequestOtpDto, VerifyOtpDto } from './dto/otp.dto';
 export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
@@ -10,15 +10,14 @@ export declare class AuthController {
     private clearRefreshTokenCookie;
     register(dto: RegisterDto, res: Response): Promise<{
         user: {
-            id: `${string}-${string}-${string}-${string}-${string}`;
-            email: string;
-            username: string;
-            role: string;
-        } | {
-            id: string;
-            email: string;
-            username: string;
-            role: import("@prisma/client").$Enums.Role;
+            id: any;
+            email: any;
+            username: any;
+            firstName: any;
+            lastName: any;
+            age: any;
+            displayName: any;
+            role: any;
         };
         accessToken: string;
     }>;
@@ -27,6 +26,10 @@ export declare class AuthController {
             id: any;
             email: any;
             username: any;
+            firstName: any;
+            lastName: any;
+            age: any;
+            displayName: any;
             role: any;
         };
         accessToken: string;
@@ -37,13 +40,28 @@ export declare class AuthController {
     logout(req: Request, res: Response, bodyToken?: string): Promise<{
         message: string;
     }>;
+    checkEmail(dto: CheckEmailDto): Promise<{
+        valid: boolean;
+        available: boolean;
+        reason: string;
+        message: string;
+        email?: undefined;
+    } | {
+        valid: boolean;
+        available: boolean;
+        email: string;
+        message: string;
+        reason?: undefined;
+    }>;
     requestOtp(dto: RequestOtpDto): Promise<{
         message: string;
+        email: string;
     }>;
     verifyOtp(dto: VerifyOtpDto, res: Response): Promise<{
         message: string;
         email: string;
         isNewUser: boolean;
+        verified: boolean;
     } | {
         accessToken: string;
         refreshToken: string;
@@ -52,10 +70,15 @@ export declare class AuthController {
             id: any;
             email: any;
             username: any;
+            firstName: any;
+            lastName: any;
+            age: any;
+            displayName: any;
             role: any;
         };
         message?: undefined;
         email?: undefined;
+        verified?: undefined;
     } | {
         isNewUser: boolean;
         user: {

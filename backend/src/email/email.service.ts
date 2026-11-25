@@ -57,6 +57,7 @@ export class EmailServiceImpl implements IEmailService {
     const isProduction = this.config.get<string>('NODE_ENV') === 'production';
     const emailUser = this.config.get<string>('EMAIL_USER');
     const emailPass = this.config.get<string>('EMAIL_PASS');
+    const brevoApiKey = this.config.get<string>('BREVO_API_KEY');
     const resendApiKey = this.config.get<string>('RESEND_API_KEY');
     
     // Gmail API OAuth2 credentials
@@ -116,6 +117,42 @@ export class EmailServiceImpl implements IEmailService {
           `Gmail API Failed to send email to ${to}: ${err.response?.data?.error?.message || err.message}`
         );
         // Fallback to other providers if Gmail API fails
+      }
+    }
+
+    // Check if Brevo HTTP API Key is configured (runs over port 443 HTTPS, ideal for Railway)
+    if (brevoApiKey) {
+      try {
+        this.logger.log(`Brevo HTTP API Delivery Attempt for ${to}`);
+        const senderMatch = from.match(/^(?:"?([^"<]+)"?\s*)?<([^>]+)>$/);
+        const senderName = senderMatch?.[1]?.trim() || 'Momentum AI';
+        const senderEmail = senderMatch?.[2]?.trim() || from.trim();
+
+        const response = await axios.post(
+          'https://api.brevo.com/v3/smtp/email',
+          {
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email: to }],
+            subject: 'Momentum AI Verification Code',
+            htmlContent,
+            textContent: `Your Momentum AI Verification Code is: ${code}. Valid for 5 minutes.`,
+          },
+          {
+            headers: {
+              'api-key': brevoApiKey,
+              accept: 'application/json',
+              'content-type': 'application/json',
+            },
+            timeout: 10000,
+          },
+        );
+        this.logger.log(`Email Sent successfully via Brevo API to ${to}: ${response.data?.messageId || 'ok'}`);
+        return;
+      } catch (err: any) {
+        this.logger.error(
+          `Brevo API Failed to send email to ${to}: ${err.response?.data?.message || err.message}`,
+        );
+        // Fallback to other providers if Brevo API fails
       }
     }
 

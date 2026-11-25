@@ -28,6 +28,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await this.$connect();
       this.logger.log('Successfully connected to Neon PostgreSQL database.');
       this.isFallbackMode = false;
+      try {
+        await this.$executeRawUnsafe(
+          'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "firstName" TEXT, ADD COLUMN IF NOT EXISTS "lastName" TEXT, ADD COLUMN IF NOT EXISTS "age" INTEGER;',
+        );
+      } catch (migrationErr: any) {
+        this.logger.warn(`Schema column sync skipped: ${migrationErr.message}`);
+      }
     } catch (err: any) {
       this.logger.warn(`Neon PostgreSQL connection failed: ${err.message}. Enabling local JSON database fallback.`);
       this.isFallbackMode = true;

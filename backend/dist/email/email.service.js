@@ -95,6 +95,7 @@ let EmailServiceImpl = EmailServiceImpl_1 = class EmailServiceImpl {
         const isProduction = this.config.get('NODE_ENV') === 'production';
         const emailUser = this.config.get('EMAIL_USER');
         const emailPass = this.config.get('EMAIL_PASS');
+        const brevoApiKey = this.config.get('BREVO_API_KEY');
         const resendApiKey = this.config.get('RESEND_API_KEY');
         const gmailClientId = this.config.get('GMAIL_CLIENT_ID');
         const gmailClientSecret = this.config.get('GMAIL_CLIENT_SECRET');
@@ -133,6 +134,33 @@ let EmailServiceImpl = EmailServiceImpl_1 = class EmailServiceImpl {
             }
             catch (err) {
                 this.logger.error(`Gmail API Failed to send email to ${to}: ${err.response?.data?.error?.message || err.message}`);
+            }
+        }
+        if (brevoApiKey) {
+            try {
+                this.logger.log(`Brevo HTTP API Delivery Attempt for ${to}`);
+                const senderMatch = from.match(/^(?:"?([^"<]+)"?\s*)?<([^>]+)>$/);
+                const senderName = senderMatch?.[1]?.trim() || 'Momentum AI';
+                const senderEmail = senderMatch?.[2]?.trim() || from.trim();
+                const response = await axios_1.default.post('https://api.brevo.com/v3/smtp/email', {
+                    sender: { name: senderName, email: senderEmail },
+                    to: [{ email: to }],
+                    subject: 'Momentum AI Verification Code',
+                    htmlContent,
+                    textContent: `Your Momentum AI Verification Code is: ${code}. Valid for 5 minutes.`,
+                }, {
+                    headers: {
+                        'api-key': brevoApiKey,
+                        accept: 'application/json',
+                        'content-type': 'application/json',
+                    },
+                    timeout: 10000,
+                });
+                this.logger.log(`Email Sent successfully via Brevo API to ${to}: ${response.data?.messageId || 'ok'}`);
+                return;
+            }
+            catch (err) {
+                this.logger.error(`Brevo API Failed to send email to ${to}: ${err.response?.data?.message || err.message}`);
             }
         }
         if (resendApiKey) {

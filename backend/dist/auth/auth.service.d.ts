@@ -12,23 +12,36 @@ export declare class AuthService {
     private emailService;
     private readonly logger;
     constructor(prisma: PrismaService, redis: RedisService, jwtService: JwtService, emailService: EmailService);
+    private formatUserResponse;
+    private findUserByEmail;
+    private isUsernameTaken;
+    private generateUniqueUsername;
+    private verifyOtpCodeInternal;
+    checkEmailForRegistration(rawEmail: string): Promise<{
+        valid: boolean;
+        available: boolean;
+        reason: string;
+        message: string;
+        email?: undefined;
+    } | {
+        valid: boolean;
+        available: boolean;
+        email: string;
+        message: string;
+        reason?: undefined;
+    }>;
     register(dto: RegisterDto): Promise<{
         accessToken: string;
         refreshToken: string;
         user: {
-            id: `${string}-${string}-${string}-${string}-${string}`;
-            email: string;
-            username: string;
-            role: string;
-        };
-    } | {
-        accessToken: string;
-        refreshToken: string;
-        user: {
-            id: string;
-            email: string;
-            username: string;
-            role: import("@prisma/client").$Enums.Role;
+            id: any;
+            email: any;
+            username: any;
+            firstName: any;
+            lastName: any;
+            age: any;
+            displayName: any;
+            role: any;
         };
     }>;
     login(dto: LoginDto): Promise<{
@@ -38,16 +51,22 @@ export declare class AuthService {
             id: any;
             email: any;
             username: any;
+            firstName: any;
+            lastName: any;
+            age: any;
+            displayName: any;
             role: any;
         };
     }>;
-    requestOtp(email: string): Promise<{
+    requestOtp(rawEmail: string, purpose?: 'login' | 'register'): Promise<{
         message: string;
+        email: string;
     }>;
     verifyOtp(dto: VerifyOtpDto): Promise<{
         message: string;
         email: string;
         isNewUser: boolean;
+        verified: boolean;
     } | {
         accessToken: string;
         refreshToken: string;
@@ -56,10 +75,15 @@ export declare class AuthService {
             id: any;
             email: any;
             username: any;
+            firstName: any;
+            lastName: any;
+            age: any;
+            displayName: any;
             role: any;
         };
         message?: undefined;
         email?: undefined;
+        verified?: undefined;
     }>;
     refreshSession(refreshToken: string): Promise<{
         accessToken: string;

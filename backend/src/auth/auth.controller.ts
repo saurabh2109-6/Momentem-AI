@@ -3,7 +3,7 @@ import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { RequestOtpDto, VerifyOtpDto } from './dto/otp.dto';
+import { CheckEmailDto, RequestOtpDto, VerifyOtpDto } from './dto/otp.dto';
 import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 
@@ -12,20 +12,22 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   private setRefreshTokenCookie(res: Response, token: string) {
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/api/auth', // only send to auth endpoints
     });
   }
 
   private clearRefreshTokenCookie(res: Response) {
+    const isProd = process.env.NODE_ENV === 'production';
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       path: '/api/auth',
     });
   }
@@ -91,10 +93,16 @@ export class AuthController {
     return { message: 'Logged out successfully' };
   }
 
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  async checkEmail(@Body() dto: CheckEmailDto) {
+    return this.authService.checkEmailForRegistration(dto.email);
+  }
+
   @Post('otp/request')
   @HttpCode(HttpStatus.OK)
   async requestOtp(@Body() dto: RequestOtpDto) {
-    return this.authService.requestOtp(dto.email);
+    return this.authService.requestOtp(dto.email, dto.purpose);
   }
 
   @Post('otp/verify')

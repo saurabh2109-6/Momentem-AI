@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Calendar, 
@@ -20,6 +20,11 @@ import Link from 'next/link';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'planner' | 'chat' | 'analytics' | 'ai'>('planner');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(Boolean(localStorage.getItem('momentum_token')));
+  }, []);
 
   const tabs = [
     { id: 'planner', label: 'Dynamic Planner', icon: Calendar },
@@ -164,18 +169,30 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link 
-              href="/auth" 
-              className="text-sm font-semibold text-white/80 hover:text-white transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link 
-              href="/auth?mode=register" 
-              className="px-4 py-2 rounded-lg bg-white text-black font-semibold text-sm hover:bg-white/90 transition-colors shadow-lg hover:shadow-white/5"
-            >
-              Get Started
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="px-4 py-2 rounded-lg bg-white text-black font-semibold text-sm hover:bg-white/90 transition-colors shadow-lg hover:shadow-white/5 flex items-center gap-1.5"
+              >
+                Go to Home Dashboard
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <>
+                <Link 
+                  href="/auth" 
+                  className="text-sm font-semibold text-white/80 hover:text-white transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  href="/auth?mode=register" 
+                  className="px-4 py-2 rounded-lg bg-white text-black font-semibold text-sm hover:bg-white/90 transition-colors shadow-lg hover:shadow-white/5"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -199,10 +216,10 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
             <Link 
-              href="/auth" 
+              href={isLoggedIn ? '/dashboard' : '/auth?mode=register'} 
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-md hover:opacity-95 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-primary/25 group"
             >
-              Start Planning Free 
+              {isLoggedIn ? 'Open Home Dashboard' : 'Start Planning Free'}
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a 

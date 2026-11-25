@@ -9,31 +9,60 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VerifyOtpDto = exports.RequestOtpDto = void 0;
+exports.VerifyOtpDto = exports.RequestOtpDto = exports.CheckEmailDto = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const normalizeEmail = ({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value;
+const trimString = ({ value }) => typeof value === 'string' ? value.trim() : value;
+class CheckEmailDto {
+    email;
+}
+exports.CheckEmailDto = CheckEmailDto;
+__decorate([
+    (0, class_transformer_1.Transform)(normalizeEmail),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)({ message: 'Email ID is required' }),
+    __metadata("design:type", String)
+], CheckEmailDto.prototype, "email", void 0);
 class RequestOtpDto {
     email;
+    purpose;
 }
 exports.RequestOtpDto = RequestOtpDto;
 __decorate([
-    (0, class_validator_1.IsEmail)({}, { message: 'Invalid email address' }),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_transformer_1.Transform)(normalizeEmail),
+    (0, class_validator_1.IsEmail)({}, { message: 'Please enter a valid email address' }),
+    (0, class_validator_1.IsNotEmpty)({ message: 'Email ID is required' }),
     __metadata("design:type", String)
 ], RequestOtpDto.prototype, "email", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['login', 'register']),
+    __metadata("design:type", String)
+], RequestOtpDto.prototype, "purpose", void 0);
 class VerifyOtpDto {
     email;
     code;
+    purpose;
 }
 exports.VerifyOtpDto = VerifyOtpDto;
 __decorate([
-    (0, class_validator_1.IsEmail)({}, { message: 'Invalid email address' }),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_transformer_1.Transform)(normalizeEmail),
+    (0, class_validator_1.IsEmail)({}, { message: 'Please enter a valid email address' }),
+    (0, class_validator_1.IsNotEmpty)({ message: 'Email ID is required' }),
     __metadata("design:type", String)
 ], VerifyOtpDto.prototype, "email", void 0);
 __decorate([
+    (0, class_transformer_1.Transform)(trimString),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.Length)(6, 6, { message: 'OTP must be exactly 6 characters' }),
+    (0, class_validator_1.IsNotEmpty)({ message: 'OTP code is required' }),
+    (0, class_validator_1.Length)(6, 6, { message: 'OTP must be exactly 6 digits' }),
+    (0, class_validator_1.Matches)(/^\d{6}$/, { message: 'OTP must contain only 6 digits' }),
     __metadata("design:type", String)
 ], VerifyOtpDto.prototype, "code", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['login', 'register']),
+    __metadata("design:type", String)
+], VerifyOtpDto.prototype, "purpose", void 0);
 //# sourceMappingURL=otp.dto.js.map
